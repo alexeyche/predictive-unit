@@ -56,7 +56,8 @@ lrate = 0.005
 
 net = FeedbackNet(
     PredictiveUnit(input_size, state_size, output_size, c, tf.nn.relu),
-    OutputUnit(state_size, output_size, output_size, c, tf.identity)
+    PredictiveUnit(state_size, state_size/2, state_size/2, c, tf.nn.relu),
+    # OutputUnit(state_size, output_size, output_size, c, tf.identity)
 )
 
 

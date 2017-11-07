@@ -89,9 +89,11 @@ class PredictiveUnit(RNNCell):
 
             new_dF = s.dF + c.grad_accum_rate * tf.matmul(tf.transpose(e), a_new)
             
+            x_hat_new = tf.matmul(a_new, tf.transpose(F))
+
             return (
-                PredictiveUnit.Output(u_new, a_new, e, x_hat),
-                PredictiveUnit.State(u_new, a_new, e, new_dF)
+                PredictiveUnit.Output(u_new, a_new, x_hat_new-x, x_hat_new),
+                PredictiveUnit.State(u_new, a_new, x_hat_new-x, new_dF)
             )
 
 
