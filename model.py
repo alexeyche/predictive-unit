@@ -81,11 +81,9 @@ class PredictiveUnit(RNNCell):
 
             e = x - x_hat
 
-            # e = tf.Print(e, [feedback])
-            
-            u_new = s.u + c.step * (
-                tf.matmul(e, F) + c.fb_factor * feedback
-            )/c.tau
+            dudt = tf.matmul(e, F) + c.fb_factor * feedback
+
+            u_new = s.u + c.step * dudt/c.tau
 
             a_new = self._act(u_new)
 
@@ -98,14 +96,6 @@ class PredictiveUnit(RNNCell):
 
 
 class OutputUnit(PredictiveUnit):
-    # @property
-    # def state_size(self):
-    #     return PredictiveUnit.State(self._layer_size, self._layer_size, self._layer_size, (self._input_size, self._layer_size))
-
-    # @property
-    # def output_size(self):
-    #     return PredictiveUnit.Output(self._layer_size, self._layer_size, self._layer_size, self._layer_size)
-
     def __call__(self, input, s, scope=None):
         with tf.variable_scope(scope or type(self).__name__):
             if self._params is None:
@@ -124,7 +114,6 @@ class OutputUnit(PredictiveUnit):
 
             e = tf.matmul(e_y, tf.transpose(F))
             
-
             new_dF = s.dF + c.grad_accum_rate * tf.matmul(tf.transpose(x), e_y)
             
             return (

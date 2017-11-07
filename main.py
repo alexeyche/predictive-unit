@@ -1,7 +1,7 @@
 
 import time
 from util import *
-from dataset import get_toy_data, one_hot_encode
+from dataset import get_toy_data_baseline, one_hot_encode
 
 
 import tensorflow.contrib.rnn as rnn
@@ -11,38 +11,33 @@ from config import Config
 
 from model import *
 
-# input_size = 20
-# x_v, target_v = get_toy_data(input_size, 2000, seed = 5)
-
-# test_prop = x_v.shape[0]/5
-
-# xt_v = x_v[:test_prop]
-# target_t_v = target_v[:test_prop]
-
-# x_v = x_v[test_prop:]
-# target_v = target_v[test_prop:]
-
-# y_v = one_hot_encode(target_v)
-# yt_v = one_hot_encode(target_t_v)
-
-
-# output_size = y_v.shape[1]
-
 tf.set_random_seed(1)
 np.random.seed(1)
 
-input_size = 2
-output_size = 2
-batch_size = 1
 
-x_v = np.ones((batch_size, input_size))
-y_v = np.asarray([[0.5, 0.5]])
+x_v, target_v = get_toy_data_baseline()
+input_size = x_v.shape[1]
+
+test_prop = x_v.shape[0]/5
+
+xt_v = x_v[:test_prop]
+target_t_v = target_v[:test_prop]
+
+x_v = x_v[test_prop:]
+target_v = target_v[test_prop:]
+
+y_v = one_hot_encode(target_v)
+yt_v = one_hot_encode(target_t_v)
+
+
+output_size = y_v.shape[1]
+
 
 
 ######################################
 
 
-state_size = 3
+state_size = 50
 
 
 x = tf.placeholder(tf.float32, shape=(None, input_size), name="x")
@@ -52,14 +47,15 @@ y = tf.placeholder(tf.float32, shape=(None, output_size), name="y")
 c = Config()
 c.weight_init_factor = 1.0
 c.step = 0.01
-c.tau = 1.0
-c.grad_accum_rate = 1.0
-c.fb_factor = 1.0
-lrate = 0.1
-num_iters = 300
+c.tau = 10.0
+num_iters = 30
+c.grad_accum_rate = 1.0/num_iters
+c.fb_factor = tf.placeholder(tf.float32, shape=(), name="fb_factor")
+lrate = 0.005
+
 
 net = FeedbackNet(
-    PredictiveUnit(input_size, state_size, output_size, c, tf.identity),
+    PredictiveUnit(input_size, state_size, output_size, c, tf.nn.relu),
     OutputUnit(state_size, output_size, output_size, c, tf.identity)
 )
 
@@ -73,22 +69,29 @@ states = tuple(
 )
 
 
-new_states = []
-new_outputs = []
 
-for li, (cell, state) in enumerate(zip(net.cells, states)):
-    input_to_layer = x if li == 0 else new_states[-1].a
-    feedback_to_layer = y if li == len(states)-1 else states[li+1].e
-    
-    o, s = cell((input_to_layer, feedback_to_layer), state)
+new_outputs = [PredictiveUnit.Output([],[],[],[]) for _ in xrange(len(net.cells))]
 
-    new_states.append(s)
-    new_outputs.append(o)
+states_it = states
+for i in xrange(num_iters):
+    new_states = []    
+
+    for li, (cell, state) in enumerate(zip(net.cells, states_it)):
+        input_to_layer = x if li == 0 else new_states[-1].a
+        feedback_to_layer = y if li == len(states_it)-1 else states_it[li+1].e
+        
+        o, s = cell((input_to_layer, feedback_to_layer), state)
+
+        new_states.append(s)
+        
+        for v, dst_list in zip(o, new_outputs[li]):
+            dst_list.append(v)
+
+    states_it = tuple(new_states)
 
 
-
-
-optimizer = tf.train.GradientDescentOptimizer(lrate)
+# optimizer = tf.train.GradientDescentOptimizer(lrate)
+optimizer = tf.train.AdamOptimizer(lrate)
 
 grads_and_vars = tuple(
     (-tf.reduce_mean(s.dF, 0), l.F) 
@@ -99,61 +102,74 @@ apply_grads_step = tf.group(
     optimizer.apply_gradients(grads_and_vars),
 )
 
-# error_rate = tf.reduce_mean(tf.cast(
-#     tf.not_equal(
-#         tf.argmax(debug[-1].reconstruction, axis=1),  
-#         tf.cast(tf.argmax(y, axis=1), tf.int64)
-#     ), tf.float32))
+error_rate = tf.reduce_mean(tf.cast(
+    tf.not_equal(
+        tf.argmax(new_outputs[-1].reconstruction[-1], axis=1),
+        tf.cast(tf.argmax(y, axis=1), tf.int64)
+    ), tf.float32))
 
 
 sess = tf.Session()
 sess.run(tf.global_variables_initializer())
 
 
-batch_size_v = x_v.shape[0]
-
-init_state_fn = lambda: tuple(
+init_state_fn = lambda batch_size: tuple(
     tuple(
-        np.zeros([batch_size_v, ] + s.get_shape().as_list()[1:])
+        np.zeros([batch_size, ] + s.get_shape().as_list()[1:])
          for s in init_state
     )
     for init_state in states
 )
 
 
-states_v = init_state_fn()
+
+
 
 outs = [PredictiveUnit.Output([],[],[],[]) for _ in xrange(len(net.cells))]
-
-for i in xrange(num_iters):
-
-    feeds = {
-        x: x_v,
-        y: y_v,
-        states: states_v
-    }
     
+    
+def run(x_v, y_v, s_v, fb_factor_v, learn=True):
     sess_out = sess.run(
         (
             new_states,
             new_outputs,
-            grads_and_vars,
-            apply_grads_step,
+            error_rate,
+        ) + ( 
+            (apply_grads_step, ) if learn else tuple()
         ),
-        feeds
+        {
+            x: x_v,
+            y: y_v,
+            states: s_v,
+            c.fb_factor: fb_factor_v
+        }
     )
-    
-    states_v = tuple([reset_state_fn(s) for s in sess_out[0]])
-    
-    for li, o_v in enumerate(sess_out[1]):
-        for ot, tt in zip(outs[li], o_v):
-            ot.append(tt)
 
-    # print outs[0].u[-1], "|", outs[1].u[-1]
-    print "i {},  error {}".format(
-        i, 
+    return (
+        tuple([reset_state_fn(s) for s in sess_out[0]]), 
+        sess_out[1], 
+        sess_out[2],
+    )
+
+
+for e in xrange(200):
+    states_v = init_state_fn(x_v.shape[0])
+    states_t_v = init_state_fn(xt_v.shape[0])
+    
+    
+    states_v, train_outs, train_error_rate = run(x_v, y_v, states_v, 0.01)
+    states_t_v, test_outs, test_error_rate = run(xt_v, yt_v, states_t_v, 0.0, learn=False)
+    
+    for li, o_v in enumerate(train_outs):
+        for ot, tt in zip(outs[li], o_v):
+            ot += tt
+    
+    print "e {}, train error {:.4f}, test error {:.4f},  error {}".format(
+        e, 
+        train_error_rate,
+        test_error_rate,
         ", ".join(
-            ["{:.4f}".format(np.sum( s.e ** 2.0)) for s in states_v[:-1] ] + 
+            ["{:.4f}".format(np.sum(s.e ** 2.0)) for s in states_v[:-1] ] + 
             ["{:.4f}".format(np.sum((states_v[-1].a - y_v) ** 2.0))]
         )
     )

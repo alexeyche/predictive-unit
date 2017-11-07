@@ -15,7 +15,7 @@ from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
 
-from dataset import get_toy_data
+from dataset import get_toy_data_baseline
 
 
 input_size = 20
@@ -49,7 +49,7 @@ classifiers = [
 
 # model = DecisionTreeClassifier()
 for model_name, model in zip(names, classifiers):
-    x_values, y_values = get_toy_data(input_size, batch_size, seed = 5)
+    x_values, y_values = get_toy_data_baseline()
 
 
     n_train = (4 * x_values.shape[0]/5)

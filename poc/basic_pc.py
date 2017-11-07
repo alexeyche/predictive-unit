@@ -29,22 +29,10 @@ S = lambda x: np.log(1.0 + np.square(x))
 dS = lambda x: 2.0 * x / (np.square(x) + 1.0)
 
 
-# W = list(
-#     np.random.random((net_structure[li-1] if li > 0 else input_size, size))*1.0
-#     for li, size in enumerate(net_structure)
-# )
-
-W = list([
-    np.asarray([
-        [ 0.77172887,  0.92807782,  0.98455656], 
-        [ 0.48378634,  0.64331949,  0.6040535 ]
-    ]),
-    np.asarray([
-        [ 0.65488744,  0.46419418],
-        [ 0.55719793,  0.27298439],
-        [ 0.88136756,  0.64968431]
-    ])
-])
+W = list(
+    np.random.random((net_structure[li-1] if li > 0 else input_size, size))*1.0
+    for li, size in enumerate(net_structure)
+)
 
 
 Wcp = [w.copy() for w in W]
