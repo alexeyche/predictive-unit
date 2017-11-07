@@ -1,5 +1,7 @@
 
 import tensorflow as tf
+import numpy as np
+
 from collections import namedtuple
 
 from tensorflow.contrib.rnn import RNNCell as RNNCell
@@ -28,7 +30,6 @@ class PredictiveUnit(RNNCell):
         
         self._Finput = Finput
         self._params = None
-
 
     @property
     def state_size(self):
@@ -83,7 +84,7 @@ class PredictiveUnit(RNNCell):
             # e = tf.Print(e, [feedback])
             
             u_new = s.u + c.step * (
-                tf.matmul(e, F) - c.fb_factor * feedback
+                tf.matmul(e, F) + c.fb_factor * feedback
             )/c.tau
 
             a_new = self._act(u_new)
@@ -97,13 +98,13 @@ class PredictiveUnit(RNNCell):
 
 
 class OutputUnit(PredictiveUnit):
-    @property
-    def state_size(self):
-        return PredictiveUnit.State(self._layer_size, self._layer_size, self._layer_size, (self._input_size, self._layer_size))
+    # @property
+    # def state_size(self):
+    #     return PredictiveUnit.State(self._layer_size, self._layer_size, self._layer_size, (self._input_size, self._layer_size))
 
-    @property
-    def output_size(self):
-        return PredictiveUnit.Output(self._layer_size, self._layer_size, self._layer_size, self._layer_size)
+    # @property
+    # def output_size(self):
+    #     return PredictiveUnit.Output(self._layer_size, self._layer_size, self._layer_size, self._layer_size)
 
     def __call__(self, input, s, scope=None):
         with tf.variable_scope(scope or type(self).__name__):
@@ -119,9 +120,12 @@ class OutputUnit(PredictiveUnit):
 
             a_new = self._act(u_new)
 
-            e = a_target - a_new
+            e_y = a_target - a_new
 
-            new_dF = s.dF + c.grad_accum_rate * tf.matmul(tf.transpose(x), e)
+            e = tf.matmul(e_y, tf.transpose(F))
+            
+
+            new_dF = s.dF + c.grad_accum_rate * tf.matmul(tf.transpose(x), e_y)
             
             return (
                 PredictiveUnit.Output(u_new, a_new, e, a_new),
@@ -180,3 +184,13 @@ class FeedbackNet(RNNCell):
     def cells(self):
         return self._cells
     
+
+
+def reset_state_fn(state):
+    return PredictiveUnit.State(
+        state.u,
+        state.a,
+        state.e,
+        np.zeros(state.dF.shape)
+    )
+

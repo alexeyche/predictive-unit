@@ -17,19 +17,34 @@ x = np.ones((input_size,))
 lrule = Learning.BP
 
 
-y_t = np.asarray([0.8])
+y_t = np.asarray([0.5, 0.5])
 
-net_structure = (1,1)
+
+
+
+net_structure = (3,2)
 
 
 S = lambda x: np.log(1.0 + np.square(x))
 dS = lambda x: 2.0 * x / (np.square(x) + 1.0)
 
 
-W = list(
-    np.random.random((net_structure[li-1] if li > 0 else input_size, size))*1.0
-    for li, size in enumerate(net_structure)
-)
+# W = list(
+#     np.random.random((net_structure[li-1] if li > 0 else input_size, size))*1.0
+#     for li, size in enumerate(net_structure)
+# )
+
+W = list([
+    np.asarray([
+        [ 0.77172887,  0.92807782,  0.98455656], 
+        [ 0.48378634,  0.64331949,  0.6040535 ]
+    ]),
+    np.asarray([
+        [ 0.65488744,  0.46419418],
+        [ 0.55719793,  0.27298439],
+        [ 0.88136756,  0.64968431]
+    ])
+])
 
 
 Wcp = [w.copy() for w in W]
@@ -38,7 +53,7 @@ B = np.random.random((net_structure[-1], net_structure[-2]))*1.0
 
 fb_factor = 1.0
 tau = 5.0
-num_iters = 1000
+num_iters = 200
 h = 0.01
 
 tau_apical = 2.0
@@ -63,7 +78,11 @@ h1 = np.zeros(net_structure[1])
 r1 = np.zeros(net_structure[1])
 
 e = np.zeros((net_structure[-1]))
-for i in xrange(num_iters):
+
+dW = [np.zeros(w.shape) for w in W]
+
+
+for i in xrange(100):
     in0 = x - np.dot(r0, W[0].T)
     top_down0 = e
     
@@ -71,8 +90,6 @@ for i in xrange(num_iters):
     
     r0 = act(h0)
 
-
-    e = y_t - r1
     
     if predictive_output:
         # in1 = np.dot(e, W[1].T)
@@ -85,20 +102,25 @@ for i in xrange(num_iters):
     
     r1 = act(h1)
 
+    e = y_t - r1
+
     error = np.asarray((
         np.sum(in0 ** 2.0),
         np.sum(e ** 2.0),
     ))
 
 
+    
     # dW0 = -np.outer(in0, np.dot(e, W[1].T) )
     
-    dW0 = -np.outer(in0, r0 * act.deriv(top_down0))
-    dW1 = -np.outer(r0, e)
+    dW0 = np.outer(in0, r0)
+    dW1 = np.outer(r0, e)
     
-    W[0] -= lrate * dW0
-    W[1] -= lrate * dW1
+    W[0] += lrate * dW0
+    W[1] += lrate * dW1
 
+    # print h0, "|", h1
+    # print np.mean(dW0, 0), np.mean(dW1, 0)
     print "i {}, error {}".format(i, ", ".join(["{:.4f}".format(ee) for ee in error]))
 
     h0_h[i] = h0.copy()
@@ -108,5 +130,6 @@ for i in xrange(num_iters):
     in0_h[i] = in0.copy()
 
 # shl(h1_h, np.asarray([y_t]*num_iters),np.asarray([3.0]*num_iters))
-shl(e0_h)
+# shl(e1_h)
+# shl(h1_h)
 
