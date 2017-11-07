@@ -37,7 +37,7 @@ output_size = y_v.shape[1]
 ######################################
 
 
-state_size = 50
+state_size = 100
 
 
 x = tf.placeholder(tf.float32, shape=(None, input_size), name="x")
@@ -48,16 +48,19 @@ c = Config()
 c.weight_init_factor = 1.0
 c.step = 0.01
 c.tau = 10.0
-num_iters = 30
+num_iters = 10
 c.grad_accum_rate = 1.0/num_iters
 c.fb_factor = tf.placeholder(tf.float32, shape=(), name="fb_factor")
-lrate = 0.005
+lrate = 0.01
 
 
 net = FeedbackNet(
     PredictiveUnit(input_size, state_size, output_size, c, tf.nn.relu),
-    PredictiveUnit(state_size, state_size/2, state_size/2, c, tf.nn.relu),
-    # OutputUnit(state_size, output_size, output_size, c, tf.identity)
+    OutputUnit(state_size, output_size, output_size, c, tf.nn.softmax)
+
+    # PredictiveUnit(input_size, state_size, state_size/2, c, tf.nn.relu),
+    # PredictiveUnit(state_size, state_size/2, output_size, c, tf.nn.relu),
+    # OutputUnit(state_size/2, output_size, output_size, c, tf.nn.softmax)
 )
 
 
@@ -78,8 +81,17 @@ for i in xrange(num_iters):
     new_states = []    
 
     for li, (cell, state) in enumerate(zip(net.cells, states_it)):
+        last_layer = li == len(states_it)-1
+        
         input_to_layer = x if li == 0 else new_states[-1].a
-        feedback_to_layer = y if li == len(states_it)-1 else states_it[li+1].e
+
+        if last_layer:
+            if isinstance(cell, OutputUnit):
+                feedback_to_layer = y
+            elif isinstance(cell, PredictiveUnit):
+                feedback_to_layer = tf.zeros((tf.shape(x)[0], cell.feedback_size))
+        else:
+            feedback_to_layer = states_it[li+1].e
         
         o, s = cell((input_to_layer, feedback_to_layer), state)
 
@@ -91,8 +103,8 @@ for i in xrange(num_iters):
     states_it = tuple(new_states)
 
 
-# optimizer = tf.train.GradientDescentOptimizer(lrate)
-optimizer = tf.train.AdamOptimizer(lrate)
+optimizer = tf.train.GradientDescentOptimizer(lrate)
+# optimizer = tf.train.AdamOptimizer(lrate)
 
 grads_and_vars = tuple(
     (-tf.reduce_mean(s.dF, 0), l.F) 
@@ -110,6 +122,9 @@ error_rate = tf.reduce_mean(tf.cast(
     ), tf.float32))
 
 
+
+#####################################
+
 sess = tf.Session()
 sess.run(tf.global_variables_initializer())
 
@@ -124,9 +139,6 @@ init_state_fn = lambda batch_size: tuple(
 
 
 
-
-
-outs = [PredictiveUnit.Output([],[],[],[]) for _ in xrange(len(net.cells))]
     
     
 def run(x_v, y_v, s_v, fb_factor_v, learn=True):
@@ -152,19 +164,20 @@ def run(x_v, y_v, s_v, fb_factor_v, learn=True):
         sess_out[2],
     )
 
+outs = [PredictiveUnit.Output([],[],[],[]) for _ in xrange(len(net.cells))]
+states_v = init_state_fn(x_v.shape[0])
+states_t_v = init_state_fn(xt_v.shape[0])
 
-for e in xrange(200):
-    states_v = init_state_fn(x_v.shape[0])
-    states_t_v = init_state_fn(xt_v.shape[0])
-    
-    
+epochs = 200
+for e in xrange(epochs):
     states_v, train_outs, train_error_rate = run(x_v, y_v, states_v, 0.01)
-    states_t_v, test_outs, test_error_rate = run(xt_v, yt_v, states_t_v, 0.0, learn=False)
+    states_t_v, _, test_error_rate = run(xt_v, yt_v, states_t_v, 0.0, learn=False)
     
-    for li, o_v in enumerate(train_outs):
-        for ot, tt in zip(outs[li], o_v):
-            ot += tt
-    
+    if epochs < 5:
+        for li, o_v in enumerate(train_outs):
+            for ot, tt in zip(outs[li], o_v):
+                ot += tt
+        
     print "e {}, train error {:.4f}, test error {:.4f},  error {}".format(
         e, 
         train_error_rate,
@@ -172,6 +185,8 @@ for e in xrange(200):
         ", ".join(
             ["{:.4f}".format(np.sum(s.e ** 2.0)) for s in states_v[:-1] ] + 
             ["{:.4f}".format(np.sum((states_v[-1].a - y_v) ** 2.0))]
+            # ["{:.4f}".format(-np.sum(y_v * np.log(states_v[-1].a)))]
+            
         )
     )
 

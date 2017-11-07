@@ -14,6 +14,10 @@ def exp_poisson(u, dt=0.001):
     return poisson(dt * tf.exp(u))
                 
 
+def xavier_init(fan_in, fan_out, const=0.5):
+    low = -const * np.sqrt(6.0 / (fan_in + fan_out))
+    high = const * np.sqrt(6.0 / (fan_in + fan_out))
+    return tf.random_uniform((fan_in, fan_out), minval=low, maxval=high)
 
 
 class PredictiveUnit(RNNCell):
@@ -56,10 +60,7 @@ class PredictiveUnit(RNNCell):
         
         c = self._c
         return (
-            tf.get_variable("F", [self._input_size, self._layer_size], 
-                # initializer=tf.uniform_unit_scaling_initializer(factor=c.weight_init_factor)
-                initializer=tf.random_uniform_initializer(0.0, c.weight_init_factor),
-            ),
+            tf.Variable(xavier_init(self._input_size, self._layer_size, c.weight_init_factor)),
         )
 
     @property
@@ -98,6 +99,7 @@ class PredictiveUnit(RNNCell):
 
 
 class OutputUnit(PredictiveUnit):
+
     def __call__(self, input, s, scope=None):
         with tf.variable_scope(scope or type(self).__name__):
             if self._params is None:
