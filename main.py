@@ -111,6 +111,8 @@ grads_and_vars = tuple(
     for l, s in zip(net.cells, new_states)
 )
 
+# grads_and_vars = ((-tf.reduce_mean(new_states[-1].dF,0), net.cells[-1].F),)
+
 apply_grads_step = tf.group(
     optimizer.apply_gradients(grads_and_vars),
 )
@@ -170,7 +172,7 @@ states_t_v = init_state_fn(xt_v.shape[0])
 
 epochs = 200
 for e in xrange(epochs):
-    states_v, train_outs, train_error_rate = run(x_v, y_v, states_v, 0.01)
+    states_v, train_outs, train_error_rate = run(x_v, y_v, states_v, 0.0)
     states_t_v, _, test_error_rate = run(xt_v, yt_v, states_t_v, 0.0, learn=False)
     
     if epochs < 5:
