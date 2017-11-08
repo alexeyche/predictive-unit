@@ -67,10 +67,7 @@ r = [np.zeros(ns) for ns in net_structure]
 
 print tuple(ee.shape for ee in e)
 
-for i in xrange(num_iters):
-    if i > 250:
-        fb_factor = 0.0
-    
+for i in xrange(num_iters):    
     for li in xrange(len(net_structure)-1):
         input_to_layer = x if li == 0 else r[li-1]
 
