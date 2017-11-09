@@ -11,8 +11,8 @@ from config import Config
 
 from model import *
 
-tf.set_random_seed(1)
-np.random.seed(1)
+# tf.set_random_seed(1)
+# np.random.seed(1)
 
 
 x_v, target_v = get_toy_data_baseline()
@@ -42,21 +42,21 @@ state_size = 100
 
 x = tf.placeholder(tf.float32, shape=(None, input_size), name="x")
 y = tf.placeholder(tf.float32, shape=(None, output_size), name="y")
-
+is_training = tf.placeholder(tf.bool, shape=(), name="is_training")
 
 c = Config()
 c.weight_init_factor = 1.0
-c.step = 0.01
+c.step = 0.02
 c.tau = 10.0
-num_iters = 10
+num_iters = 20
 c.grad_accum_rate = 1.0/num_iters
 c.fb_factor = tf.placeholder(tf.float32, shape=(), name="fb_factor")
-lrate = 0.01
+lrate = 0.001
 
 
 net = FeedbackNet(
-    PredictiveUnit(input_size, state_size, output_size, c, tf.nn.relu),
-    OutputUnit(state_size, output_size, output_size, c, tf.nn.softmax)
+    PredictiveUnit(input_size, state_size, output_size, c, tf.nn.relu, is_training),
+    OutputUnit(state_size, output_size, output_size, c, tf.nn.softmax, is_training)
 
     # PredictiveUnit(input_size, state_size, state_size/2, c, tf.nn.relu),
     # PredictiveUnit(state_size, state_size/2, output_size, c, tf.nn.relu),
@@ -94,6 +94,20 @@ for i in xrange(num_iters):
             feedback_to_layer = states_it[li+1].e
         
         o, s = cell((input_to_layer, feedback_to_layer), state)
+        
+        # s = PredictiveUnit.State(
+        #     s.u, 
+        #     tf.contrib.layers.batch_norm(
+        #         s.a,
+        #         decay=0.9,
+        #         is_training=is_training,
+        #         trainable=False,
+        #         center=True,
+        #         scale=False,
+        #     ), 
+        #     s.e, 
+        #     s.dF
+        # )
 
         new_states.append(s)
         
@@ -156,7 +170,8 @@ def run(x_v, y_v, s_v, fb_factor_v, learn=True):
             x: x_v,
             y: y_v,
             states: s_v,
-            c.fb_factor: fb_factor_v
+            c.fb_factor: fb_factor_v,
+            is_training: learn
         }
     )
 
@@ -167,12 +182,13 @@ def run(x_v, y_v, s_v, fb_factor_v, learn=True):
     )
 
 outs = [PredictiveUnit.Output([],[],[],[]) for _ in xrange(len(net.cells))]
-states_v = init_state_fn(x_v.shape[0])
-states_t_v = init_state_fn(xt_v.shape[0])
 
-epochs = 200
+epochs = 2000
 for e in xrange(epochs):
-    states_v, train_outs, train_error_rate = run(x_v, y_v, states_v, 0.0)
+    states_v = init_state_fn(x_v.shape[0])
+    states_t_v = init_state_fn(xt_v.shape[0])
+
+    states_v, train_outs, train_error_rate = run(x_v, y_v, states_v, 1.0)
     states_t_v, _, test_error_rate = run(xt_v, yt_v, states_t_v, 0.0, learn=False)
     
     if epochs < 5:

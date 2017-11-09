@@ -20,12 +20,38 @@ def xavier_init(fan_in, fan_out, const=0.5):
     return tf.random_uniform((fan_in, fan_out), minval=low, maxval=high)
 
 
+def batch_norm(x, name_scope, training, epsilon=1e-3, decay=0.999, reuse=False):
+    '''Assume 2d [batch, values] tensor'''
+
+    with tf.variable_scope(name_scope, reuse=reuse):
+        size = x.get_shape().as_list()[1]
+
+        scale = tf.get_variable('scale', [size], initializer=tf.constant_initializer(1.0), trainable=False)
+        offset = tf.get_variable('offset', [size], trainable=False)
+
+        pop_mean = tf.get_variable('pop_mean', [size], initializer=tf.zeros_initializer, trainable=False)
+        pop_var = tf.get_variable('pop_var', [size], initializer=tf.ones_initializer, trainable=False)
+        batch_mean, batch_var = tf.nn.moments(x, [0])
+
+        train_mean_op = tf.assign(pop_mean, pop_mean * decay + batch_mean * (1 - decay))
+        train_var_op = tf.assign(pop_var, pop_var * decay + batch_var * (1 - decay))
+
+        def batch_statistics():
+            with tf.control_dependencies([train_mean_op, train_var_op]):
+                return tf.nn.batch_normalization(x, batch_mean, batch_var, offset, scale, epsilon)
+
+        def population_statistics():
+            return tf.nn.batch_normalization(x, pop_mean, pop_var, offset, scale, epsilon)
+
+    return tf.cond(training, batch_statistics, population_statistics)
+
+
 class PredictiveUnit(RNNCell):
     State = namedtuple("State", ["u", "a", "e", "dF"])
     Output = namedtuple("Output", ["u", "a", "e", "reconstruction"])
 
 
-    def __init__(self, input_size, layer_size, feedback_size, c, act, Finput=None):
+    def __init__(self, input_size, layer_size, feedback_size, c, act, is_training, Finput=None):
         self._layer_size = layer_size
         self._input_size = input_size
         self._feedback_size = feedback_size
@@ -34,6 +60,7 @@ class PredictiveUnit(RNNCell):
         
         self._Finput = Finput
         self._params = None
+        self._is_training = is_training
 
     @property
     def state_size(self):
@@ -72,6 +99,9 @@ class PredictiveUnit(RNNCell):
         with tf.variable_scope(scope or type(self).__name__):
             if self._params is None:
                 self._params = self._init_parameters()
+                first_time = True
+            else:
+                first_time = False
 
             x, feedback = input[0], input[1]
             c = self._c
@@ -84,10 +114,14 @@ class PredictiveUnit(RNNCell):
 
             dudt = tf.matmul(e, F) + c.fb_factor * feedback
 
+            # dudt = batch_norm(dudt, "PU", self._is_training, epsilon=1e-03, decay=0.9, reuse=not first_time)
+
             u_new = s.u + c.step * dudt/c.tau
 
             a_new = self._act(u_new)
-
+            
+            a_new = batch_norm(a_new, "a_new", self._is_training, epsilon=1e-01, decay=0.99, reuse=not first_time)
+            
             new_dF = s.dF + c.grad_accum_rate * tf.matmul(tf.transpose(e), a_new)
             
             x_hat_new = tf.matmul(a_new, tf.transpose(F))
@@ -104,6 +138,9 @@ class OutputUnit(PredictiveUnit):
         with tf.variable_scope(scope or type(self).__name__):
             if self._params is None:
                 self._params = self._init_parameters()
+                first_time = True
+            else:
+                first_time = False
 
             x, a_target = input[0], input[1]
             c = self._c
@@ -113,6 +150,8 @@ class OutputUnit(PredictiveUnit):
             u_new = tf.matmul(x, F)
 
             a_new = self._act(u_new)
+
+            # a_new = batch_norm(a_new, "a_new_out", self._is_training, epsilon=1e-03, decay=0.9, reuse=not first_time)
 
             e_y = a_target - a_new
 
