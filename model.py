@@ -139,6 +139,13 @@ class PredictiveUnit(RNNCell):
 
 
 class OutputUnit(PredictiveUnit):
+    @property
+    def state_size(self):
+        return PredictiveUnit.State(self._layer_size, self._layer_size, self._layer_size, (self._input_size, self._layer_size))
+
+    @property
+    def output_size(self):
+        return PredictiveUnit.Output(self._layer_size, self._layer_size, self._input_size, self._layer_size)
 
     def __call__(self, input, s, scope=None):
         with tf.variable_scope(scope or type(self).__name__):
@@ -161,8 +168,8 @@ class OutputUnit(PredictiveUnit):
             new_dF = s.dF + c.grad_accum_rate * tf.matmul(tf.transpose(x), e_y)
             
             return (
-                PredictiveUnit.Output(u_new, a_new, e, a_new),
-                PredictiveUnit.State(u_new, a_new, e, new_dF)
+                PredictiveUnit.Output(u_new, a_new, e_y, a_new),
+                PredictiveUnit.State(u_new, a_new, e_y, new_dF)
             )
 
 

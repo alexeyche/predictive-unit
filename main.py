@@ -58,7 +58,7 @@ net = FeedbackNet(
     # PredictiveUnit(input_size, state_size, output_size, c, tf.nn.relu, is_training),
     # OutputUnit(state_size, output_size, output_size, c, tf.nn.softmax, is_training)
 
-    PredictiveUnit(input_size, state_size, state_size/2, c, tf.nn.relu, 1.0, is_training),
+    PredictiveUnit(input_size, state_size, state_size/2, c, tf.nn.relu, fb_factor, is_training),
     PredictiveUnit(state_size, state_size/2, output_size, c, tf.nn.relu, fb_factor, is_training),
     OutputUnit(state_size/2, output_size, output_size, c, tf.nn.softmax, 0.0, is_training)
 )
@@ -72,7 +72,7 @@ states = tuple(
     for cell in net.cells
 )
 
-
+Bs = [tf.Variable(tf.random_normal([output_size, cell.layer_size])) for cell in net.cells[:-1]]
 
 new_outputs = [PredictiveUnit.Output([],[],[],[]) for _ in xrange(len(net.cells))]
 
@@ -92,7 +92,8 @@ for i in xrange(num_iters):
                 elif isinstance(cell, PredictiveUnit):
                     feedback_to_layer = tf.zeros((tf.shape(x)[0], cell.feedback_size))
             else:
-                feedback_to_layer = states_it[li+1].e
+                # feedback_to_layer = states_it[li+1].e
+                feedback_to_layer = tf.matmul(states_it[-1].e, Bs[li])
             
             o, s = cell((input_to_layer, feedback_to_layer), state)
 
@@ -106,8 +107,8 @@ for i in xrange(num_iters):
 
 
 
-optimizer = tf.train.GradientDescentOptimizer(lrate)
-# optimizer = tf.train.AdamOptimizer(10.0*lrate)
+# optimizer = tf.train.GradientDescentOptimizer(lrate)
+optimizer = tf.train.AdamOptimizer(100.0*lrate)
 
 grads_and_vars = tuple(
     (-tf.reduce_mean(s.dF, 0), l.F) 
@@ -180,7 +181,7 @@ for e in xrange(epochs):
     states_v = init_state_fn(x_v.shape[0])
     states_t_v = init_state_fn(xt_v.shape[0])
 
-    states_v, train_outs, train_error_rate = run(x_v, y_v, states_v, 1.0)
+    states_v, train_outs, train_error_rate = run(x_v, y_v, states_v, 0.1)
     states_t_v, _, test_error_rate = run(xt_v, yt_v, states_t_v, 0.0, learn=False)
     
     if epochs < 5:
