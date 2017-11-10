@@ -51,7 +51,7 @@ class PredictiveUnit(RNNCell):
     Output = namedtuple("Output", ["u", "a", "e", "reconstruction"])
 
 
-    def __init__(self, input_size, layer_size, feedback_size, c, act, is_training, Finput=None):
+    def __init__(self, input_size, layer_size, feedback_size, c, act, fb_factor, is_training, Finput=None):
         self._layer_size = layer_size
         self._input_size = input_size
         self._feedback_size = feedback_size
@@ -61,6 +61,7 @@ class PredictiveUnit(RNNCell):
         self._Finput = Finput
         self._params = None
         self._is_training = is_training
+        self._fb_factor = fb_factor
 
     @property
     def state_size(self):
@@ -99,9 +100,6 @@ class PredictiveUnit(RNNCell):
         with tf.variable_scope(scope or type(self).__name__):
             if self._params is None:
                 self._params = self._init_parameters()
-                first_time = True
-            else:
-                first_time = False
 
             x, feedback = input[0], input[1]
             c = self._c
@@ -112,15 +110,23 @@ class PredictiveUnit(RNNCell):
 
             e = x - x_hat
 
-            dudt = tf.matmul(e, F) + c.fb_factor * feedback
+            fb = self._fb_factor * feedback
 
-            # dudt = batch_norm(dudt, "PU", self._is_training, epsilon=1e-03, decay=0.9, reuse=not first_time)
+            ff = tf.matmul(e, F)
+
+            ff = batch_norm(ff, "ff", self._is_training, epsilon=1e-03, decay=0.9)
+
+            fb = batch_norm(fb, "fb", self._is_training, epsilon=1e-03, decay=0.9)
+
+            dudt = ff + fb
+
+            # dudt = batch_norm(dudt, "PU", self._is_training, epsilon=1e-03, decay=0.9)
 
             u_new = s.u + c.step * dudt/c.tau
 
             a_new = self._act(u_new)
             
-            a_new = batch_norm(a_new, "a_new", self._is_training, epsilon=1e-01, decay=0.99, reuse=not first_time)
+            # a_new = batch_norm(a_new, "a_new", self._is_training, epsilon=1e-01, decay=0.99)
             
             new_dF = s.dF + c.grad_accum_rate * tf.matmul(tf.transpose(e), a_new)
             
@@ -138,9 +144,6 @@ class OutputUnit(PredictiveUnit):
         with tf.variable_scope(scope or type(self).__name__):
             if self._params is None:
                 self._params = self._init_parameters()
-                first_time = True
-            else:
-                first_time = False
 
             x, a_target = input[0], input[1]
             c = self._c
@@ -150,8 +153,6 @@ class OutputUnit(PredictiveUnit):
             u_new = tf.matmul(x, F)
 
             a_new = self._act(u_new)
-
-            # a_new = batch_norm(a_new, "a_new_out", self._is_training, epsilon=1e-03, decay=0.9, reuse=not first_time)
 
             e_y = a_target - a_new
 

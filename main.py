@@ -43,6 +43,7 @@ state_size = 100
 x = tf.placeholder(tf.float32, shape=(None, input_size), name="x")
 y = tf.placeholder(tf.float32, shape=(None, output_size), name="y")
 is_training = tf.placeholder(tf.bool, shape=(), name="is_training")
+fb_factor = tf.placeholder(tf.float32, shape=(), name="fb_factor")
 
 c = Config()
 c.weight_init_factor = 1.0
@@ -50,17 +51,16 @@ c.step = 0.02
 c.tau = 10.0
 num_iters = 20
 c.grad_accum_rate = 1.0/num_iters
-c.fb_factor = tf.placeholder(tf.float32, shape=(), name="fb_factor")
 lrate = 0.001
 
 
 net = FeedbackNet(
-    PredictiveUnit(input_size, state_size, output_size, c, tf.nn.relu, is_training),
-    OutputUnit(state_size, output_size, output_size, c, tf.nn.softmax, is_training)
+    # PredictiveUnit(input_size, state_size, output_size, c, tf.nn.relu, is_training),
+    # OutputUnit(state_size, output_size, output_size, c, tf.nn.softmax, is_training)
 
-    # PredictiveUnit(input_size, state_size, state_size/2, c, tf.nn.relu),
-    # PredictiveUnit(state_size, state_size/2, output_size, c, tf.nn.relu),
-    # OutputUnit(state_size/2, output_size, output_size, c, tf.nn.softmax)
+    PredictiveUnit(input_size, state_size, state_size/2, c, tf.nn.relu, 1.0, is_training),
+    PredictiveUnit(state_size, state_size/2, output_size, c, tf.nn.relu, fb_factor, is_training),
+    OutputUnit(state_size/2, output_size, output_size, c, tf.nn.softmax, 0.0, is_training)
 )
 
 
@@ -77,48 +77,37 @@ states = tuple(
 new_outputs = [PredictiveUnit.Output([],[],[],[]) for _ in xrange(len(net.cells))]
 
 states_it = states
-for i in xrange(num_iters):
+for i in xrange(num_iters):    
     new_states = []    
 
     for li, (cell, state) in enumerate(zip(net.cells, states_it)):
-        last_layer = li == len(states_it)-1
-        
-        input_to_layer = x if li == 0 else new_states[-1].a
+        with tf.variable_scope("layer{}".format(li), reuse=i>0):
+            last_layer = li == len(states_it)-1
+            
+            input_to_layer = x if li == 0 else new_states[-1].a
 
-        if last_layer:
-            if isinstance(cell, OutputUnit):
-                feedback_to_layer = y
-            elif isinstance(cell, PredictiveUnit):
-                feedback_to_layer = tf.zeros((tf.shape(x)[0], cell.feedback_size))
-        else:
-            feedback_to_layer = states_it[li+1].e
-        
-        o, s = cell((input_to_layer, feedback_to_layer), state)
-        
-        # s = PredictiveUnit.State(
-        #     s.u, 
-        #     tf.contrib.layers.batch_norm(
-        #         s.a,
-        #         decay=0.9,
-        #         is_training=is_training,
-        #         trainable=False,
-        #         center=True,
-        #         scale=False,
-        #     ), 
-        #     s.e, 
-        #     s.dF
-        # )
+            if last_layer:
+                if isinstance(cell, OutputUnit):
+                    feedback_to_layer = y
+                elif isinstance(cell, PredictiveUnit):
+                    feedback_to_layer = tf.zeros((tf.shape(x)[0], cell.feedback_size))
+            else:
+                feedback_to_layer = states_it[li+1].e
+            
+            o, s = cell((input_to_layer, feedback_to_layer), state)
 
-        new_states.append(s)
-        
-        for v, dst_list in zip(o, new_outputs[li]):
-            dst_list.append(v)
+            new_states.append(s)
+            
+            for v, dst_list in zip(o, new_outputs[li]):
+                dst_list.append(v)
 
     states_it = tuple(new_states)
 
 
+
+
 optimizer = tf.train.GradientDescentOptimizer(lrate)
-# optimizer = tf.train.AdamOptimizer(lrate)
+# optimizer = tf.train.AdamOptimizer(10.0*lrate)
 
 grads_and_vars = tuple(
     (-tf.reduce_mean(s.dF, 0), l.F) 
@@ -130,6 +119,9 @@ grads_and_vars = tuple(
 apply_grads_step = tf.group(
     optimizer.apply_gradients(grads_and_vars),
 )
+
+# apply_grads_step = optimizer.minimize(tf.nn.l2_loss(new_states[-1].a - y))
+
 
 error_rate = tf.reduce_mean(tf.cast(
     tf.not_equal(
@@ -170,7 +162,7 @@ def run(x_v, y_v, s_v, fb_factor_v, learn=True):
             x: x_v,
             y: y_v,
             states: s_v,
-            c.fb_factor: fb_factor_v,
+            fb_factor: fb_factor_v,
             is_training: learn
         }
     )
