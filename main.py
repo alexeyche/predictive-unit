@@ -193,8 +193,8 @@ for e in xrange(epochs):
         train_error_rate,
         test_error_rate,
         ", ".join(
-            ["{:.4f}".format(np.sum(s.e ** 2.0)) for s in states_v[:-1] ] + 
-            ["{:.4f}".format(np.sum((states_v[-1].a - y_v) ** 2.0))]
+            ["{:.4f}".format(np.sum(s.e ** 2.0)) for s in states_t_v[:-1] ] + 
+            ["{:.4f}".format(np.sum((states_t_v[-1].a - y_v) ** 2.0))]
             # ["{:.4f}".format(-np.sum(y_v * np.log(states_v[-1].a)))]
             
         )
