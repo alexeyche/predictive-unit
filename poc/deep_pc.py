@@ -6,9 +6,9 @@ import numpy as np
 from util import *
 from poc.common import *
 
-np.random.seed(5)
+# np.random.seed(5)
 
-act = Relu()
+act = Linear()
 act_o = Linear()
 
 input_size = 100
@@ -18,9 +18,9 @@ x = np.random.randn(input_size)
 lrule = Learning.BP
 
 
-y_t = np.asarray([0.8, 0.2])
+y_t = np.asarray([0.8])
 
-net_structure = (50, 20, 10, 2)
+net_structure = (3, 2, 1)
 
 
 S = lambda x: np.log(1.0 + np.square(x))
@@ -41,16 +41,16 @@ B = list(
 )
 
 
-fb_factor = 1.0
+fb_factor = 0.0
 tau = 5.0
-num_iters = 500
+num_iters = 50000
 
 step = 0.1
 
 tau_apical = 2.0
 tau_basal = 2.0
 
-lrate = 0.02
+lrate = 0.0
 
 
 # sp_code = False
@@ -130,3 +130,4 @@ shl(*e_h)
 
 # shl(h_h[-1][:,0], np.asarray([y_t[0]]*num_iters),np.asarray([3.0]*num_iters), show=False)
 # shl(h_h[-1][:,1], np.asarray([y_t[1]]*num_iters),np.asarray([3.0]*num_iters))
+shl(act(h_h[1]))

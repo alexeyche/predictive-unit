@@ -12,7 +12,7 @@ x = np.ones(num) * 0.1
 
 W0 = 1.0
 W1 = 1.0
-fb_factor = 0.1
+fb_factor = 0.0
 
 # Y_t = np.zeros(num)
 # Y_t[20] = 1.0

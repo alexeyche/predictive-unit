@@ -120,24 +120,24 @@ def loop(num_iters, fb_factor, learn):
     )
 
 
-def feedback_perf_curve():
-    r = []
-    fb_factors = np.asarray(list(reversed(1.0-np.log(np.linspace(np.exp(0.0), np.exp(1.0), 100)))))
-    # fb_factors = np.log(np.linspace(np.exp(0.0), np.exp(1.0), 100))
-    # fb_factors = np.linspace(0.0, 1.0, 200)
-    for fb_factor in fb_factors:
+# def feedback_perf_curve():
+#     r = []
+#     fb_factors = np.asarray(list(reversed(1.0-np.log(np.linspace(np.exp(0.0), np.exp(1.0), 100)))))
+#     # fb_factors = np.log(np.linspace(np.exp(0.0), np.exp(1.0), 100))
+#     # fb_factors = np.linspace(0.0, 1.0, 200)
+#     for fb_factor in fb_factors:
 
-        h0_h, e0_h, h1_h, e1_h, in0_h = loop(100, fb_factor, True)
-        ht0_h, et0_h, ht1_h, et1_h, int0_h = loop(100, 0.0, False)
-        r.append((fb_factor, np.log(et1_h[-1])))
+#         h0_h, e0_h, h1_h, e1_h, in0_h = loop(100, fb_factor, True)
+#         ht0_h, et0_h, ht1_h, et1_h, int0_h = loop(100, 0.0, False)
+#         r.append((fb_factor, np.log(et1_h[-1])))
     
-    shs(np.asarray(r))
+#     shs(np.asarray(r))
     
 
-feedback_perf_curve()
+# feedback_perf_curve()
 
 
-# h0_h, e0_h, h1_h, e1_h, in0_h = loop(200, 1.0, True)
+h0_h, e0_h, h1_h, e1_h, in0_h = loop(200, 1.0, True)
 # ht0_h, et0_h, ht1_h, et1_h, int0_h = loop(200, 0.0, False)
 
 # shl(e0_h, et0_h, show=False, title="First layer train/test error")

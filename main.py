@@ -11,8 +11,8 @@ from config import Config
 
 from model import *
 
-# tf.set_random_seed(1)
-# np.random.seed(1)
+tf.set_random_seed(1)
+np.random.seed(1)
 
 
 x_v, target_v = get_toy_data_baseline()
@@ -47,18 +47,19 @@ fb_factor = tf.placeholder(tf.float32, shape=(), name="fb_factor")
 
 c = Config()
 c.weight_init_factor = 1.0
-c.step = 0.02
+c.step = 0.001
 c.tau = 10.0
 num_iters = 20
 c.grad_accum_rate = 1.0/num_iters
-lrate = 0.001
-
+lrate = 0.01
+c.adapt_gain = 5.0
+c.tau_m = 300.0
 
 net = FeedbackNet(
     # PredictiveUnit(input_size, state_size, output_size, c, tf.nn.relu, is_training),
     # OutputUnit(state_size, output_size, output_size, c, tf.nn.softmax, is_training)
 
-    PredictiveUnit(input_size, state_size, state_size/2, c, tf.nn.relu, fb_factor, is_training),
+    PredictiveUnit(input_size, state_size, state_size/2, c, tf.nn.relu, 1.0, is_training),
     PredictiveUnit(state_size, state_size/2, output_size, c, tf.nn.relu, fb_factor, is_training),
     OutputUnit(state_size/2, output_size, output_size, c, tf.nn.softmax, 0.0, is_training)
 )
@@ -74,7 +75,7 @@ states = tuple(
 
 Bs = [tf.Variable(tf.random_normal([output_size, cell.layer_size])) for cell in net.cells[:-1]]
 
-new_outputs = [PredictiveUnit.Output([],[],[],[]) for _ in xrange(len(net.cells))]
+new_outputs = [PredictiveUnit.Output([],[],[],[],[]) for _ in xrange(len(net.cells))]
 
 states_it = states
 for i in xrange(num_iters):    
@@ -92,8 +93,8 @@ for i in xrange(num_iters):
                 elif isinstance(cell, PredictiveUnit):
                     feedback_to_layer = tf.zeros((tf.shape(x)[0], cell.feedback_size))
             else:
-                # feedback_to_layer = states_it[li+1].e
-                feedback_to_layer = tf.matmul(states_it[-1].e, Bs[li])
+                feedback_to_layer = states_it[li+1].e
+                # feedback_to_layer = tf.matmul(states_it[-1].e, Bs[li])
             
             o, s = cell((input_to_layer, feedback_to_layer), state)
 
@@ -108,11 +109,11 @@ for i in xrange(num_iters):
 
 
 # optimizer = tf.train.GradientDescentOptimizer(lrate)
-optimizer = tf.train.AdamOptimizer(100.0*lrate)
+optimizer = tf.train.AdamOptimizer(lrate)
 
 grads_and_vars = tuple(
-    (-tf.reduce_mean(s.dF, 0), l.F) 
-    for l, s in zip(net.cells, new_states)
+    (-tf.reduce_mean(s.dF, 0) * (1.0 if li < len(net.cells)-1 else 1.0), l.F) 
+    for li, (l, s) in enumerate(zip(net.cells, new_states))
 )
 
 # grads_and_vars = ((-tf.reduce_mean(new_states[-1].dF,0), net.cells[-1].F),)
@@ -174,22 +175,27 @@ def run(x_v, y_v, s_v, fb_factor_v, learn=True):
         sess_out[2],
     )
 
-outs = [PredictiveUnit.Output([],[],[],[]) for _ in xrange(len(net.cells))]
+outs = [PredictiveUnit.Output([],[],[],[],[]) for _ in xrange(len(net.cells))]
+outs_t = [PredictiveUnit.Output([],[],[],[],[]) for _ in xrange(len(net.cells))]
+
+states_v = init_state_fn(x_v.shape[0])
+states_t_v = init_state_fn(xt_v.shape[0])
 
 epochs = 2000
 for e in xrange(epochs):
-    states_v = init_state_fn(x_v.shape[0])
-    states_t_v = init_state_fn(xt_v.shape[0])
 
     states_v, train_outs, train_error_rate = run(x_v, y_v, states_v, 0.1)
-    states_t_v, _, test_error_rate = run(xt_v, yt_v, states_t_v, 0.0, learn=False)
+    states_t_v, test_outs, test_error_rate = run(xt_v, yt_v, states_t_v, 0.0, learn=False)
     
-    if epochs < 5:
+    if epochs < 20:
         for li, o_v in enumerate(train_outs):
             for ot, tt in zip(outs[li], o_v):
                 ot += tt
+        for li, o_v in enumerate(test_outs):
+            for ot, tt in zip(outs_t[li], o_v):
+                ot += tt
         
-    print "e {}, train error {:.4f}, test error {:.4f},  error {}".format(
+    print "e {}, train error {:.4f}, test error {:.4f}, error {}".format(
         e, 
         train_error_rate,
         test_error_rate,
@@ -203,4 +209,8 @@ for e in xrange(epochs):
 
 
 # shl(np.tile(y_v, num_iters).reshape(num_iters, output_size), outs[1].reconstruction)
+# shm(np.asarray(outs[0].a)[-1,0:200,:], np.asarray(outs_t[0].a)[-1:,0:200,:], show=False)
+# shm(np.asarray(outs[1].a)[-1,0:200,:], np.asarray(outs_t[1].a)[-1:,0:200,:])
 
+# shl(np.asarray(outs[0].a_m)[:,0,:], show=False)
+# shl(np.asarray(outs[0].a)[:,0,:])
