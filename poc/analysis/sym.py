@@ -15,11 +15,11 @@ Lorig = ((yt - (x * W0) * W1) ** 2)/2
 Lpred = ((yt - ( (x - y * W0) * W0) * W1) ** 2)/2
 
 
-# >>> Lpred.diff(W0)
-# (2*W0*W1*y - 2*W1*(-W0*y + x))*(-W0*W1*(-W0*y + x) + yt)/2
 
-# dW0
-# (W0*W1*y - W1 * e0) * e1
 
-# dW0'
-# y
+
+
+
+
+# Lpred0 = ((yt - ( (x - y * W0) * W0) * W1) ** 2)/2
+Lpred = ((yt - (x * W0 - y * W0 * W0) * W1) ** 2)/2
