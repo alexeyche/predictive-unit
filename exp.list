@@ -1,0 +1,27 @@
+good performance, linear feedback
+
+
+
+tf.set_random_seed(3)
+np.random.seed(3)
+
+c = Config()
+c.weight_init_factor = 1.0
+c.state_size = 50
+
+c.step = 0.001
+c.tau = 10.0
+c.num_iters = 10
+
+c.adaptive = True
+c.adapt_gain = 10.0
+c.tau_m = 1000.0
+
+c.grad_accum_rate = 1.0/c.num_iters
+c.lrate = 1.0 * 10.0
+c.net_lrate_factor = 1.0
+c.out_lrate_factor = 0.0
+c.optimizer = Optimizer.SGD
+c.fb_factor = 1.0
+# c.optimizer = Optimizer.ADAM
+c.epochs = 5000

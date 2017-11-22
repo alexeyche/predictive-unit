@@ -117,14 +117,17 @@ class PredictiveUnit(RNNCell):
             # ff = batch_norm(ff, "ff", self._is_training, epsilon=1e-03, decay=0.9)
 
             # fb = batch_norm(fb, "fb", self._is_training, epsilon=1e-03, decay=0.9)
-
+            
             dudt = ff + fb
 
             # dudt = batch_norm(dudt, "PU", self._is_training, epsilon=1e-03, decay=0.9)
 
             u_new = s.u + c.step * dudt/c.tau
-
-            a_new = self._act(u_new - s.a_m)
+            
+            if c.adaptive:
+                a_new = self._act(u_new - s.a_m)
+            else:
+                a_new = self._act(u_new)
             
             # a_new = batch_norm(a_new, "a_new", self._is_training, epsilon=1e-01, decay=0.99)
             
@@ -163,6 +166,9 @@ class OutputUnit(PredictiveUnit):
 
             a_new = self._act(u_new)
 
+            ce = tf.nn.softmax_cross_entropy_with_logits(logits=u_new ,labels=a_target)
+
+            # e_y = -tf.gradients(ce, u_new)[0]
             e_y = a_target - a_new
 
             e = tf.matmul(e_y, tf.transpose(F))

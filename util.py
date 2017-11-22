@@ -6,6 +6,8 @@ import collections
 import pylab
 from scipy import signal
 
+DEFAULT_FIG_SIZE = (7,7)
+
 
 def plot_wrapper(fn):
     def wrapper(*args, **kwargs):
@@ -14,7 +16,7 @@ def plot_wrapper(fn):
         nrows = len(args)
 
         if id == 0:
-            plt.figure(figsize=kwargs.get("figsize", (10,7)))
+            plt.figure(figsize=kwargs.get("figsize", DEFAULT_FIG_SIZE))
 
         for a_id, a in enumerate(args):
             plt.subplot(nrows, ncols, nrows*id + a_id+1)
@@ -49,7 +51,7 @@ def smooth_matrix(m, sigma=0.01, filter_size=50):
     return res
 
 def shl(*vector, **kwargs):
-    plt.figure(figsize=kwargs.get("figsize", (10,10)))
+    plt.figure(figsize=kwargs.get("figsize", DEFAULT_FIG_SIZE))
     
     labels = kwargs.get("labels", [])
     for id, v in enumerate(vector):
@@ -75,7 +77,7 @@ def shs(*args, **kwargs):
     labels = kwargs.get("labels", [])
     make_pca = kwargs.get("make_pca", True)
 
-    plt.figure(figsize=kwargs.get("figsize", (10,10)))
+    plt.figure(figsize=kwargs.get("figsize", DEFAULT_FIG_SIZE))
     
     for id, a in enumerate(args):
         if make_pca and a.shape[1] > 2:

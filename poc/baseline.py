@@ -18,8 +18,6 @@ from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
 from dataset import get_toy_data_baseline
 
 
-input_size = 20
-batch_size = 2000
 
 names = [
     "Nearest Neighbors", 

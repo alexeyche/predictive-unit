@@ -33,7 +33,7 @@ def quantize_data(x, dest_size):
 
 
 def get_toy_data_baseline():
-    return get_toy_data(20, 2000, 2, 2)
+    return get_toy_data(4, 200, 2, 2)
 
 def get_toy_data(dest_dim, size, n_classes=2, seed=2):
     x_values, y_values = make_classification(
