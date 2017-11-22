@@ -1,7 +1,7 @@
 
 import time
 from util import *
-from dataset import get_toy_data_baseline, one_hot_encode
+from dataset import ToyDataset, MNISTDataset
 
 
 import tensorflow.contrib.rnn as rnn
@@ -10,28 +10,28 @@ import numpy as np
 from config import Config, dictionarize
 from sklearn.metrics import log_loss
 from model import *
-Dataset = tf.data.Dataset
+
+
+
 
 tf.set_random_seed(3)
 np.random.seed(3)
 
 
-x_v, target_v = get_toy_data_baseline()
-input_size = x_v.shape[1]
+# x_v, target_v = get_toy_data_baseline()
+# input_size = x_v.shape[1]
 
-test_prop = x_v.shape[0]/5
+# test_prop = x_v.shape[0]/5
 
-xt_v = x_v[:test_prop]
-target_t_v = target_v[:test_prop]
+# xt_v = x_v[:test_prop]
+# target_t_v = target_v[:test_prop]
 
-x_v = x_v[test_prop:]
-target_v = target_v[test_prop:]
+# x_v = x_v[test_prop:]
+# target_v = target_v[test_prop:]
 
-y_v = one_hot_encode(target_v)
-yt_v = one_hot_encode(target_t_v)
+# y_v = one_hot_encode(target_v)
+# yt_v = one_hot_encode(target_t_v)
 
-
-output_size = y_v.shape[1]
 
 
 ######################################
@@ -42,16 +42,22 @@ class Optimizer(object):
 
 
 
-def run_experiment(c):
+
+
+
+
+
+
+
+def run_experiment(c, ds):
+    (_, input_size), (_, output_size) = ds.train_shape
+
+
     x = tf.placeholder(tf.float32, shape=(None, input_size), name="x")
     y = tf.placeholder(tf.float32, shape=(None, output_size), name="y")
     is_training = tf.placeholder(tf.bool, shape=(), name="is_training")
     fb_factor = tf.placeholder(tf.float32, shape=(), name="fb_factor")
 
-    print [
-        c.state_size[li+1] if li < len(c.state_size) - 1 else output_size
-        for li, ss in enumerate(c.state_size)
-    ]
     net = FeedbackNet(*[
             PredictiveUnit(
                 c.state_size[li-1] if li > 0 else input_size,
@@ -164,8 +170,8 @@ def run_experiment(c):
 
 
 
-    
-    
+
+
     def run(x_v, y_v, s_v, fb_factor_v, learn=True):
         sess_out = sess.run(
             (
@@ -197,31 +203,40 @@ def run_experiment(c):
     fb_norm = np.zeros(c.epochs)
     ter = np.zeros(c.epochs)
 
-    states_v = init_state_fn(x_v.shape[0])
-    states_t_v = init_state_fn(xt_v.shape[0])
+    states_v = [init_state_fn(ds.train_batch_size) for bi in xrange(ds.train_batches_num)]
+    states_t_v = [init_state_fn(ds.test_batch_size) for bi in xrange(ds.test_batches_num)]
 
     for e in xrange(c.epochs):
+        for bi in xrange(ds.train_batches_num):
+            x_v, y_v = ds.next_train_batch()
 
-        # if e > 500:
-        #     fb_factor_v = 1.0
-
-        states_v, train_outs, train_error_rate = run(x_v, y_v, states_v, c.fb_factor)
-        states_t_v, test_outs, test_error_rate = run(xt_v, yt_v, states_t_v, 0.0, learn=False)
+            states_v[bi], train_outs, train_error_rate = run(x_v, y_v, states_v[bi], c.fb_factor)
         
-        ll = log_loss(yt_v, states_t_v[-1].a)
+        ll, test_error_rate, fb_norm_e = 0.0, 0.0, 0.0
+        per_layer_error = np.zeros(len(states_t_v[0])-1)
 
-        if e > c.epochs-20:
-            for li, o_v in enumerate(train_outs):
-                for ot, tt in zip(outs[li], o_v):
-                    ot += tt
-            for li, o_v in enumerate(test_outs):
-                for ot, tt in zip(outs_t[li], o_v):
-                    ot += tt
+        for bi in xrange(ds.test_batches_num):
+            xt_v, yt_v = ds.next_test_batch()
+
+            states_t_v[bi], test_outs, test_error_rate_b = run(xt_v, yt_v, states_t_v[bi], 0.0, learn=False)
+        
+            ll += log_loss(yt_v, states_t_v[bi][-1].a)/ds.test_batches_num
+            test_error_rate += test_error_rate_b/ds.test_batches_num
+            fb_norm_e += np.linalg.norm(states_t_v[bi][-1].e)/ds.test_batches_num
+            per_layer_error += np.asarray([np.sum(s.e ** 2.0) for s in states_t_v[bi][:-1] ])/ds.test_batches_num
+
+        # if e > c.epochs-20:
+        #     for li, o_v in enumerate(train_outs):
+        #         for ot, tt in zip(outs[li], o_v):
+        #             ot += tt
+        #     for li, o_v in enumerate(test_outs):
+        #         for ot, tt in zip(outs_t[li], o_v):
+        #             ot += tt
         
 
-        fb_norm[e] = np.linalg.norm(states_t_v[-1].e)
+        fb_norm[e] = fb_norm_e
         perf[e] = ll
-        ter[e] = test_error_rate 
+        ter[e] = test_error_rate
 
         if e % 100 == 0:        
             # print np.linalg.norm(sess.run(net.cells[1].F))
@@ -230,7 +245,7 @@ def run_experiment(c):
                 test_error_rate,
                 fb_norm[e],
                 ", ".join(
-                    ["{:.4f}".format(np.sum(s.e ** 2.0)) for s in states_t_v[:-1] ] + 
+                    ["{:.4f}".format(ple) for ple in per_layer_error] + 
                     # ["{:.4f}".format(np.sum((states_t_v[-1].a - yt_v) ** 2.0))]
                     ["{:.4f}".format(ll)]
                     
@@ -239,8 +254,6 @@ def run_experiment(c):
         
 
     return (perf, fb_norm, ter), (outs, outs_t)
-
-
 
 
 
@@ -265,7 +278,12 @@ c.fb_factor = 1.0
 # c.optimizer = Optimizer.ADAM
 c.epochs = 5000
 
-stats, debdata = run_experiment(c)
+
+ds = MNISTDataset()
+# ds = ToyDataset()
+
+
+stats, debdata = run_experiment(c, ds)
 
 
 # shl(np.tile(y_v, num_iters).reshape(num_iters, output_size), outs[1].reconstruction)
