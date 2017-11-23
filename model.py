@@ -137,6 +137,7 @@ class PredictiveUnit(RNNCell):
             
             new_a_m = s.a_m + (c.adapt_gain*s.a - s.a_m)/c.tau_m
 
+            
             return (
                 PredictiveUnit.Output(u_new, a_new, new_a_m, x_hat_new-x, x_hat_new),
                 PredictiveUnit.State(u_new, a_new, new_a_m, x_hat_new-x, new_dF)

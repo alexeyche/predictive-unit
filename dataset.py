@@ -51,6 +51,21 @@ def get_toy_data(dest_dim, size, n_classes=2, seed=2):
     )
     return x_values, y_values.astype(np.int32)
 
+def get_toy_data_mclass():
+    x_values, y_values = make_classification(
+        n_samples=200,
+        n_features=10, 
+        n_informative=5, 
+        n_redundant=0, 
+        n_repeated=0,
+        n_clusters_per_class=1,
+        n_classes=10,
+        scale=0.1,
+        shift=5.0,
+        random_state=2
+    )
+    return x_values, y_values.astype(np.int32)
+
 def one_hot_encode(target_v):
     y_v = np.zeros((target_v.shape[0], len(np.unique(target_v))))
     for cl_id, cl_v in enumerate(np.unique(target_v)):
@@ -102,8 +117,8 @@ class MNISTDataset(Dataset):
             "{}/tmp/MNIST_data/".format(os.environ["HOME"]),
             one_hot=True
         )
-        self._batch_size = 100
-        self._test_batch_size = 100
+        self._batch_size = 200
+        self._test_batch_size = 200
 
     @property
     def train_shape(self):
@@ -114,10 +129,12 @@ class MNISTDataset(Dataset):
         return self._data.test.images.shape, self._data.test.labels.shape
 
     def next_train_batch(self):
-        return self._data.train.next_batch(self._batch_size)
+        # return self._data.train.images[:self.train_batch_size], self._data.train.labels[:self.train_batch_size], 
+        return self._data.train.next_batch(self._batch_size, shuffle=False)
 
     def next_test_batch(self):
-        return self._data.test.next_batch(self._test_batch_size)
+        # return self._data.test.images[:self.test_batch_size], self._data.test.labels[:self.test_batch_size], 
+        return self._data.test.next_batch(self._test_batch_size, shuffle=False)
 
     @property
     def train_batch_size(self):
@@ -127,18 +144,18 @@ class MNISTDataset(Dataset):
     def test_batch_size(self):
         return self._batch_size
 
-    @property
-    def train_batches_num(self):
-        return 1
+    # @property
+    # def train_batches_num(self):
+    #     return 1
 
-    @property
-    def test_batches_num(self):
-        return 1 # TODO
+    # @property
+    # def test_batches_num(self):
+    #     return 1 # TODO
 
 
 class ToyDataset(Dataset):
     def __init__(self):
-        x_v, target_v = get_toy_data_baseline()
+        x_v, target_v = get_toy_data_mclass()
         y_v = one_hot_encode(target_v)
 
         test_prop = x_v.shape[0]/5
