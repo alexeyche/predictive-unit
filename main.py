@@ -133,7 +133,7 @@ def run_experiment(c, ds):
         raise Exception(c.optimizer)
 
     grads_and_vars = tuple(
-        (-tf.reduce_mean(s.dF, 0) * (c.net_lrate_factor if li < len(net.cells)-1 else c.out_lrate_factor), l.F) 
+        (-tf.reduce_mean(s.dF, 0) * c.lrate_factor[li], l.F)
         for li, (l, s) in enumerate(zip(net.cells, new_states))
     )
 
@@ -171,7 +171,6 @@ def run_experiment(c, ds):
 
 
 
-
     def run(x_v, y_v, s_v, fb_factor_v, learn=True):
         sess_out = sess.run(
             (
@@ -200,19 +199,22 @@ def run_experiment(c, ds):
     outs_t = [PredictiveUnit.Output([],[],[],[],[]) for _ in xrange(len(net.cells))]
 
     perf = np.zeros(c.epochs)
-    fb_norm = np.zeros(c.epochs)
+    fb_norm = np.zeros((c.epochs, len(net.cells)-1))
     ter = np.zeros(c.epochs)
 
     states_v = [init_state_fn(ds.train_batch_size) for bi in xrange(ds.train_batches_num)]
     states_t_v = [init_state_fn(ds.test_batch_size) for bi in xrange(ds.test_batches_num)]
 
     for e in xrange(c.epochs):
+        train_error_rate = 0.0
         for bi in xrange(ds.train_batches_num):
             x_v, y_v = ds.next_train_batch()
 
-            states_v[bi], train_outs, train_error_rate = run(x_v, y_v, states_v[bi], c.fb_factor)
+            states_v[bi], train_outs, train_error_rate_b = run(x_v, y_v, states_v[bi], c.fb_factor)
         
-        ll, test_error_rate, fb_norm_e = 0.0, 0.0, 0.0
+            train_error_rate += train_error_rate_b/ds.train_batches_num
+
+        ll, test_error_rate, fb_norm_e = 0.0, 0.0, np.zeros(len(net.cells)-1)
         per_layer_error = np.zeros(len(states_t_v[0])-1)
 
         for bi in xrange(ds.test_batches_num):
@@ -222,31 +224,30 @@ def run_experiment(c, ds):
         
             ll += log_loss(yt_v, states_t_v[bi][-1].a)/ds.test_batches_num
             test_error_rate += test_error_rate_b/ds.test_batches_num
-            fb_norm_e += np.linalg.norm(states_t_v[bi][-1].e)/ds.test_batches_num
+            fb_norm_e += np.asarray([np.linalg.norm(le.e) for le in states_t_v[bi][1:]])/ds.test_batches_num
             per_layer_error += np.asarray([np.sum(s.e ** 2.0) for s in states_t_v[bi][:-1] ])/ds.test_batches_num
 
-        # if e > c.epochs-20:
-        #     for li, o_v in enumerate(train_outs):
-        #         for ot, tt in zip(outs[li], o_v):
-        #             ot += tt
-        #     for li, o_v in enumerate(test_outs):
-        #         for ot, tt in zip(outs_t[li], o_v):
-        #             ot += tt
+        if e > c.epochs-20:
+            for li, o_v in enumerate(train_outs):
+                for ot, tt in zip(outs[li], o_v):
+                    ot += tt
+            for li, o_v in enumerate(test_outs):
+                for ot, tt in zip(outs_t[li], o_v):
+                    ot += tt
         
 
         fb_norm[e] = fb_norm_e
         perf[e] = ll
         ter[e] = test_error_rate
 
-        if e % 100 == 0:        
+        if e % 10 == 0:        
             # print np.linalg.norm(sess.run(net.cells[1].F))
-            print "e {}, error rate {:.4f}, |fb| {:.4f}, error {}".format(
+            print "e {}, error rate {:.4f} {:.4f}, |fb| {}, error {}".format(
                 e, 
-                test_error_rate,
-                fb_norm[e],
+                train_error_rate, test_error_rate, 
+                ", ".join(["{:.4f}".format(fbe) for fbe in fb_norm[e]]),
                 ", ".join(
                     ["{:.4f}".format(ple) for ple in per_layer_error] + 
-                    # ["{:.4f}".format(np.sum((states_t_v[-1].a - yt_v) ** 2.0))]
                     ["{:.4f}".format(ll)]
                     
                 )
@@ -258,25 +259,25 @@ def run_experiment(c, ds):
 
 
 c = Config()
-c.weight_init_factor = 1.0
+c.weight_init_factor = 0.1
 c.state_size = (50,)
 
-c.step = 0.001
+c.step = 0.00001
 c.tau = 10.0
 c.num_iters = 10
 
-c.adaptive = True
+c.adaptive = False
 c.adapt_gain = 10.0
 c.tau_m = 1000.0
 
 c.grad_accum_rate = 1.0/c.num_iters
-c.lrate = 1.0 * 10.0
-c.net_lrate_factor = 1.0
-c.out_lrate_factor = 0.0
-c.optimizer = Optimizer.SGD
+c.lrate = 0.0
+c.lrate_factor = (1.0, 0.0)
 c.fb_factor = 1.0
+c.regularization = 0.01
+c.optimizer = Optimizer.SGD
 # c.optimizer = Optimizer.ADAM
-c.epochs = 5000
+c.epochs = 2000
 
 
 ds = MNISTDataset()

@@ -166,14 +166,15 @@ class OutputUnit(PredictiveUnit):
 
             a_new = self._act(u_new)
 
-            ce = tf.nn.softmax_cross_entropy_with_logits(logits=u_new ,labels=a_target)
-
-            # e_y = -tf.gradients(ce, u_new)[0]
+            # e_y = -tf.gradients(
+            #     tf.nn.softmax_cross_entropy_with_logits(logits=u_new ,labels=a_target), u_new
+            # )[0]
+            
             e_y = a_target - a_new
 
             e = tf.matmul(e_y, tf.transpose(F))
             
-            new_dF = s.dF + c.grad_accum_rate * tf.matmul(tf.transpose(x), e_y)
+            new_dF = s.dF + c.grad_accum_rate * (tf.matmul(tf.transpose(x), e_y) - c.regularization * F)
             
             return (
                 PredictiveUnit.Output(u_new, a_new, a_new, e, a_new),
