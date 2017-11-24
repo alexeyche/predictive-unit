@@ -117,8 +117,9 @@ class MNISTDataset(Dataset):
             "{}/tmp/MNIST_data/".format(os.environ["HOME"]),
             one_hot=True
         )
-        self._batch_size = 200
+        self._train_batch_size = 200
         self._test_batch_size = 200
+        self._i = 0
 
     @property
     def train_shape(self):
@@ -129,28 +130,40 @@ class MNISTDataset(Dataset):
         return self._data.test.images.shape, self._data.test.labels.shape
 
     def next_train_batch(self):
-        # return self._data.train.images[:self.train_batch_size], self._data.train.labels[:self.train_batch_size], 
-        return self._data.train.next_batch(self._batch_size, shuffle=False)
-
+        tup_to_return = (
+            self._data.train.images[self._i * self._train_batch_size:(self._i + 1) * self.train_batch_size], 
+            self._data.train.labels[self._i * self._train_batch_size:(self._i + 1) * self.train_batch_size]
+        )
+        self._i += 1
+        if self._i >= self.train_batches_num:
+            self._i = 0
+        return tup_to_return
+        
     def next_test_batch(self):
-        # return self._data.test.images[:self.test_batch_size], self._data.test.labels[:self.test_batch_size], 
-        return self._data.test.next_batch(self._test_batch_size, shuffle=False)
+        tup_to_return = (
+            self._data.test.images[self._i * self._test_batch_size:(self._i + 1) * self._test_batch_size], 
+            self._data.test.labels[self._i * self._test_batch_size:(self._i + 1) * self._test_batch_size]
+        )
+        self._i += 1
+        if self._i >= self.test_batches_num:
+            self._i = 0
+        return tup_to_return
 
     @property
     def train_batch_size(self):
-        return self._batch_size
+        return self._train_batch_size
 
     @property
     def test_batch_size(self):
-        return self._batch_size
+        return self._test_batch_size
 
-    # @property
-    # def train_batches_num(self):
-    #     return 1
+    @property
+    def train_batches_num(self):
+        return 3
 
-    # @property
-    # def test_batches_num(self):
-    #     return 1 # TODO
+    @property
+    def test_batches_num(self):
+        return 3 # TODO
 
 
 class ToyDataset(Dataset):

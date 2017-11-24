@@ -59,11 +59,11 @@ c.adapt_gain = 10.0
 c.tau_m = 1000.0
 
 c.grad_accum_rate = 1.0/c.num_iters
-c.lrate = 0.001
+c.lrate = 0.1
 c.state_size = (200,)
 c.lrate_factor = (1.0, 1.0)
-c.fb_factor = 3.0
-c.regularization = 0.01
+c.fb_factor = 1.0
+c.regularization = 0.1
 c.optimizer = Optimizer.SGD
 # c.optimizer = Optimizer.ADAM
 c.epochs = 1000
