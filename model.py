@@ -172,8 +172,8 @@ class OutputUnit(PredictiveUnit):
             # )[0]
             
             e_y = a_target - a_new
-
-            e = tf.matmul(e_y, tf.transpose(F))
+            
+            e = tf.matmul(e_y, tf.transpose(tf.nn.l2_normalize(F, 0)))
             
             new_dF = s.dF + c.grad_accum_rate * (tf.matmul(tf.transpose(x), e_y) - c.regularization * F)
             

@@ -1,7 +1,7 @@
 
 import time
 import os
-
+import shutil
 from util import *
 from dataset import ToyDataset, MNISTDataset
 
@@ -60,17 +60,16 @@ c.tau_m = 1000.0
 
 c.grad_accum_rate = 1.0/c.num_iters
 c.lrate = 0.1
-c.state_size = (200,)
+c.state_size = (200, )
 c.lrate_factor = (1.0, 1.0)
 c.fb_factor = 1.0
-c.regularization = 0.1
+c.regularization = 0.0
 c.optimizer = Optimizer.SGD
 # c.optimizer = Optimizer.ADAM
 c.epochs = 1000
 
-
-ds = MNISTDataset()
-# ds = ToyDataset()
+# ds = MNISTDataset()
+ds = ToyDataset()
 
 
 
@@ -156,8 +155,9 @@ for i in xrange(c.num_iters):
     states_it = tuple(new_states)
 
 for li, s in enumerate(new_states):
-    tf.summary.histogram("hist_u_{}".format(li), s.u)
-    tf.summary.histogram("hist_a_{}".format(li), s.a)
+    tf.summary.image("a_{}".format(li), tf.expand_dims(tf.expand_dims(s.a, 0), 3))
+    # tf.summary.histogram("hist_u_{}".format(li), s.u)
+    # tf.summary.histogram("hist_a_{}".format(li), s.a)
     tf.summary.scalar("error_norm_{}".format(li), tf.linalg.norm(s.e))
     tf.summary.scalar("weight_norm_{}".format(li), tf.linalg.norm(net.cells[li].F))
     tf.summary.scalar("derivative_norm_{}".format(li), tf.linalg.norm(s.dF))
@@ -174,13 +174,11 @@ grads_and_vars = tuple(
     for li, (l, s) in enumerate(zip(net.cells, new_states))
 )
 
-# grads_and_vars = ((-tf.reduce_mean(new_states[-1].dF,0), net.cells[-1].F),)
-
 apply_grads_step = tf.group(
     optimizer.apply_gradients(grads_and_vars),
 )
 
-# apply_grads_step = optimizer.minimize(tf.nn.l2_loss(new_states[-1].a - y), var_list=[net.cells[0].F])
+# apply_grads_step = optimizer.minimize(tf.nn.l2_loss(new_states[-1].a - y)) #, var_list=[net.cells[0].F])
 
 
 error_rate = tf.reduce_mean(tf.cast(
@@ -199,6 +197,9 @@ merged = tf.summary.merge_all()
 
 sess = tf.Session()
 sess.run(tf.global_variables_initializer())
+
+
+shutil.rmtree('{}/tmp/pu'.format(os.environ["HOME"]))
 
 train_writer = tf.summary.FileWriter('{}/tmp/pu/train'.format(os.environ["HOME"]), sess.graph)
 test_writer = tf.summary.FileWriter('{}/tmp/pu/test'.format(os.environ["HOME"]))

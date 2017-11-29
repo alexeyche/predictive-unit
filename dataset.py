@@ -159,11 +159,11 @@ class MNISTDataset(Dataset):
 
     @property
     def train_batches_num(self):
-        return 3
+        return 10
 
     @property
     def test_batches_num(self):
-        return 3 # TODO
+        return 10 # TODO
 
 
 class ToyDataset(Dataset):
