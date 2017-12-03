@@ -34,7 +34,7 @@ def quantize_data(x, dest_size):
 
 
 def get_toy_data_baseline():
-    return get_toy_data(4, 200, 2, 2)
+    return get_toy_data(4, 200, 2, 3)
 
 def get_toy_data(dest_dim, size, n_classes=2, seed=2):
     x_values, y_values = make_classification(
@@ -168,7 +168,7 @@ class MNISTDataset(Dataset):
 
 class ToyDataset(Dataset):
     def __init__(self):
-        x_v, target_v = get_toy_data_mclass()
+        x_v, target_v = get_toy_data_baseline()
         y_v = one_hot_encode(target_v)
 
         test_prop = x_v.shape[0]/5

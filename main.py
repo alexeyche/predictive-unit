@@ -16,8 +16,8 @@ from model import *
 
 
 
-tf.set_random_seed(3)
-np.random.seed(3)
+# tf.set_random_seed(3)
+# np.random.seed(3)
 
 
 # x_v, target_v = get_toy_data_baseline()
@@ -48,25 +48,25 @@ class Optimizer(object):
 
 
 c = Config()
-c.weight_init_factor = 1.0
+c.weight_init_factor = 0.1
 
-c.step = 0.0001
+c.step = 0.001
 c.tau = 1.0
 c.num_iters = 10
 
 c.adaptive = True
-c.adapt_gain = 10.0
+c.adapt_gain = 1.0
 c.tau_m = 1000.0
 
 c.grad_accum_rate = 1.0/c.num_iters
-c.lrate = 0.1
-c.state_size = (200, )
+c.lrate = 0.01 
+c.state_size = (50, )
 c.lrate_factor = (1.0, 1.0)
 c.fb_factor = 1.0
 c.regularization = 0.0
 c.optimizer = Optimizer.SGD
 # c.optimizer = Optimizer.ADAM
-c.epochs = 1000
+c.epochs = 2000
 
 # ds = MNISTDataset()
 ds = ToyDataset()
@@ -198,8 +198,10 @@ merged = tf.summary.merge_all()
 sess = tf.Session()
 sess.run(tf.global_variables_initializer())
 
-
-shutil.rmtree('{}/tmp/pu'.format(os.environ["HOME"]))
+try:
+    shutil.rmtree('{}/tmp/pu'.format(os.environ["HOME"]))
+except:
+    pass
 
 train_writer = tf.summary.FileWriter('{}/tmp/pu/train'.format(os.environ["HOME"]), sess.graph)
 test_writer = tf.summary.FileWriter('{}/tmp/pu/test'.format(os.environ["HOME"]))
@@ -248,10 +250,13 @@ perf = np.zeros(c.epochs)
 fb_norm = np.zeros((c.epochs, len(net.cells)-1))
 ter = np.zeros(c.epochs)
 
+
 states_v = [init_state_fn(ds.train_batch_size) for bi in xrange(ds.train_batches_num)]
 states_t_v = [init_state_fn(ds.test_batch_size) for bi in xrange(ds.test_batches_num)]
 
+
 for e in xrange(c.epochs):
+
     train_error_rate = 0.0
     for bi in xrange(ds.train_batches_num):
         x_v, y_v = ds.next_train_batch()

@@ -87,8 +87,12 @@ class PredictiveUnit(RNNCell):
         if self._Finput is not None: return (self._Finput, )
         
         c = self._c
+
+        # init = tf.nn.l2_normalize(xavier_init(self._input_size, self._layer_size, c.weight_init_factor), 0)
+        init = xavier_init(self._input_size, self._layer_size, c.weight_init_factor)
+        
         return (
-            tf.Variable(xavier_init(self._input_size, self._layer_size, c.weight_init_factor)),
+            tf.Variable(init),
         )
 
     @property
@@ -173,9 +177,10 @@ class OutputUnit(PredictiveUnit):
             
             e_y = a_target - a_new
             
+            # e = tf.matmul(e_y, tf.transpose(F))
             e = tf.matmul(e_y, tf.transpose(tf.nn.l2_normalize(F, 0)))
             
-            new_dF = s.dF + c.grad_accum_rate * (tf.matmul(tf.transpose(x), e_y) - c.regularization * F)
+            new_dF = s.dF + c.grad_accum_rate * (tf.matmul(tf.transpose(x), e_y) ) #- c.regularization * F)
             
             return (
                 PredictiveUnit.Output(u_new, a_new, a_new, e, a_new),

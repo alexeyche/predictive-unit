@@ -5,6 +5,8 @@ from matplotlib.pyplot import cm
 import numpy as np
 from util import *
 from poc.common import *
+# import autograd.numpy as np
+# from autograd import elementwise_grad as grad
 
 np.random.seed(5)
 
@@ -80,12 +82,13 @@ def run(
         
 
         e[1] = r[0] - np.dot(r[1], W[1].T)
-        h[1] += step * (np.dot(e[1], W[1])- nudge_factor*np.dot(e[2], W[2].T))
+        h[1] += step * (np.dot(e[1], W[1]) - nudge_factor*np.dot(e[2], W[2].T))
         r[1] = act(h[1]) # - rm[1])
         
         # rm[1] += (adapt_gain*r[1] - rm[1])/tau_m
         
-        e[2] = np.dot(r[1], W[2]) - y_t
+        h[2] = np.dot(r[1], W[2])
+        e[2] = h[2] - y_t
 
         ###
 
