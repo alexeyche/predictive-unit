@@ -16,7 +16,10 @@ x = np.random.random((batch_size, in_n))
 def f(params):
 	W = params.reshape((in_n, out_n))
 
-	return np.dot(x, W) - np.dot(y, np.dot(W.T, W))
+	# return np.dot(x, W) - np.dot(y, np.dot(W.T, W))
+
+	return np.dot(x - np.dot(y, W.T), W)
+
 
 	# return - np.dot(y, np.dot(W.T, W))
 	# return np.sum(np.dot(y, W.T))

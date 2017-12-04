@@ -40,7 +40,7 @@ def run(params):
 	W0, W1 = slice_params(params)
 
 	r0 = np.ones((net_size,))
-	
+	# r0[0] = 0.5
 	r0_init = r0.copy()
 
 	r0_h = list()
@@ -70,7 +70,7 @@ def runobj(params):
 
 	r0_init, r0_h, r0p_h, e0_h, e1_h, r0 = run(params)
 
-	return np.sum(np.square(r_t - np.dot(r0, W1)))
+	return 0.5 * np.sum(np.square(r_t - np.dot(r0, W1)))
 
 
 params = np.random.random((input_size *net_size + net_size * output_size))
@@ -94,8 +94,20 @@ for i in xrange(1):
 
 		e1 = r_t - np.dot(r0, W1)
 
+		e1_net = np.dot(e1, W1.T)
+		e1_net_tile = np.tile(e1_net, (input_size, 1))
+
+		r0_p = np.tile(np.expand_dims(r0p, 1), (1, net_size))
+		# r0_p = np.outer(r0p, e1_net)
+
+		# dW0_hand = np.tile(x, (net_size, 1)).T - np.dot(r0_p + np.transpose(r0_p), W0.T).T
+		# dW = np.tile(np.sum(r0, 0), (out_n, 1)).T - np.sum(np.dot(y_p + np.transpose(y_p, (0, 2, 1)), W.T), 0).T
+
+		# dW0_hand = np.outer(e0, np.dot(e1, W1.T))
+		
 		dW1_hand = - np.outer(r0, e1)
 		dW0_hand = - np.outer(e0, np.dot(e1, W1.T))
+		# dW0_hand *= np.tile(np.dot(e1, W1.T), (input_size, 1))
 
 		dW0_h.append(dW0_hand)
 		dW1_h.append(dW1_hand)
@@ -103,11 +115,11 @@ for i in xrange(1):
 
 	dW0_h, dW1_h = np.asarray(dW0_h), np.asarray(dW1_h)
 
-	shm(h*2.0*np.sum(dW0_h,0) - dW0)
+	shm(h*np.sum(dW0_h,0) - dW0)
 
-	vv = np.mean(h*2.0*np.sum(dW0_h,0)- dW0, 1)
+	vv = np.mean(h*np.sum(dW0_h,0)- dW0, 1)
 
-	# shl(2.0*dW1_hand[:,0], dW1[:,0])
+	# shl(dW1_hand[:,0], dW1[:,0])
 
 
 	# params += - 0.5 * dparams 	
