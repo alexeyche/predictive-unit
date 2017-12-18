@@ -45,11 +45,13 @@ do = df(params).reshape((in_n, out_n))
 
 dW = np.zeros(W.shape)
 
-y_p = np.tile(np.expand_dims(y, 1), (1, out_n, 1))
+#y_p = np.tile(np.expand_dims(y, 1), (1, out_n, 1))
+
+y_p = np.expand_dims(y, 1)
 
 # x_p = np.tile(np.expand_dims(x, 1), (1, out_n, 1))
 
 
-dW = np.tile(np.sum(x, 0), (out_n, 1)).T - np.sum(np.dot(y_p + np.transpose(y_p, (0, 2, 1)), W.T), 0).T
+dW = np.tile(np.sum(x, 0), (out_n, 1)) - np.sum(np.dot(y_p + np.transpose(y_p, (0, 2, 1)), W.T), 0)
 
-print do - dW
+print do - dW.T
