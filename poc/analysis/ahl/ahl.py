@@ -27,7 +27,7 @@ hidden_size = 10
 output_size = 1
 batch_size = 4
 
-lrate = 0.05
+lrate = 0.1
 Tsize = 50
 
 dt = 0.001
@@ -66,8 +66,9 @@ for bi in xrange(batch_size):
 	yt[:, bi] = np.expand_dims(fuzzy_xor(xt[:, bi, 0], xt[:, bi, 1]), 1)
 
 
+sigmoid = Sigmoid()
 
-for epoch in xrange(50000):
+for epoch in xrange(5000):
 	u = np.zeros((batch_size, hidden_size))
 	et = np.zeros((Tsize, batch_size))
 	ett = np.zeros((Tsize, batch_size))
@@ -85,7 +86,7 @@ for epoch in xrange(50000):
 		
 		a = act(u)
 
-		y_hat = np.dot(a, W1)
+		y_hat = sigmoid(np.dot(a, W1))
 
 		de = yt[ti] - y_hat
 
@@ -104,28 +105,29 @@ for epoch in xrange(50000):
 		at[ti] = a.copy()
 
 
-	# u = np.zeros((batch_size, hidden_size))
+	u = np.zeros((batch_size, hidden_size))
 	
-	# for ti in xrange(Tsize):
-	# 	x = xt[ti]
+	for ti in xrange(Tsize):
+		x = xt[ti]
 		
-	# 	u += dt * (np.dot(x, W0) - u)/tau
+		u += dt * (np.dot(x, W0) - u)/tau
 		
-	# 	a = act(u)
+		a = act(u)
 
-	# 	y_hat = np.dot(a, W1)
+		y_hat = sigmoid(np.dot(a, W1))
 
-	# 	de = yt[ti] - y_hat
+		de = yt[ti] - y_hat
 
-	# 	e = np.sum(np.square(de), 1)
+		e = np.sum(np.square(de), 1)
 
-	# 	ett[ti] = e
-	# 	y_hat_tt[ti] = y_hat.copy()
-	# 	utt[ti] = u.copy()
-	# 	att[ti] = a.copy()
+		ett[ti] = e
+		y_hat_tt[ti] = y_hat.copy()
+		utt[ti] = u.copy()
+		att[ti] = a.copy()
 
 
 	W0 += dW0 * lrate
 	W1 += dW1 * lrate
+
 	if epoch % 100 == 0:
-		print "Epoch {}, error: {}".format(epoch, np.sum(et[:-(Tsize/2)]))
+		print "Epoch {}, error: {}".format(epoch, np.sum(ett[:-(Tsize/2)]))
