@@ -3,7 +3,7 @@ import time
 import os
 import shutil
 from util import *
-from dataset import ToyDataset, MNISTDataset
+from dataset import ToyDataset, MNISTDataset, XorDataset, TaskType
 
 
 import tensorflow.contrib.rnn as rnn
@@ -15,27 +15,6 @@ from model import *
 
 
 
-
-# tf.set_random_seed(3)
-# np.random.seed(3)
-
-
-# x_v, target_v = get_toy_data_baseline()
-# input_size = x_v.shape[1]
-
-# test_prop = x_v.shape[0]/5
-
-# xt_v = x_v[:test_prop]
-# target_t_v = target_v[:test_prop]
-
-# x_v = x_v[test_prop:]
-# target_v = target_v[test_prop:]
-
-# y_v = one_hot_encode(target_v)
-# yt_v = one_hot_encode(target_t_v)
-
-
-
 ######################################
 
 class Optimizer(object):
@@ -43,16 +22,12 @@ class Optimizer(object):
     ADAM = "adam"
 
 
-
-
-
-
 c = Config()
 c.weight_init_factor = 0.1
 
-c.step = 0.001
+c.step = 0.01
 c.tau = 1.0
-c.num_iters = 10
+c.num_iters = 20
 
 c.adaptive = True
 c.adapt_gain = 1.0
@@ -60,19 +35,18 @@ c.tau_m = 1000.0
 
 c.grad_accum_rate = 1.0/c.num_iters
 c.lrate = 0.01 
-c.state_size = (50, )
+c.state_size = (5, )
 c.lrate_factor = (1.0, 1.0)
 c.fb_factor = 1.0
 c.regularization = 0.0
 c.optimizer = Optimizer.SGD
 # c.optimizer = Optimizer.ADAM
-c.epochs = 2000
+c.epochs = 1
 
 # ds = MNISTDataset()
-ds = ToyDataset()
+ds = XorDataset()
 
-
-
+tf.set_random_seed(11)
 
 
 
@@ -80,8 +54,10 @@ ds = ToyDataset()
 
 
 # def run_experiment(c, ds):
-
 (_, input_size), (_, output_size) = ds.train_shape
+
+output_act = tf.nn.sigmoid if ds.task_type == TaskType.REGRESSION else tf.nn.softmax
+
 
 
 x = tf.placeholder(tf.float32, shape=(None, input_size), name="x")
@@ -106,7 +82,7 @@ net = FeedbackNet(*[
             output_size, 
             output_size, 
             c, 
-            tf.nn.softmax, 
+            output_act,
             0.0, 
             is_training
         )
@@ -311,10 +287,21 @@ for e in xrange(c.epochs):
         )
     
 
-# return (perf, fb_norm, ter), (outs, outs_t)
+    # return (perf, fb_norm, ter), (outs, outs_t)
+
+
+
+
+
+
+
+
+
 
 
 # stats, debdata = run_experiment(c, ds)
+
+# outs, outs_t = debdata
 
 
 # shl(np.tile(y_v, num_iters).reshape(num_iters, output_size), outs[1].reconstruction)

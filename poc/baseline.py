@@ -15,9 +15,9 @@ from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
 
-from dataset import get_toy_data_baseline
+from dataset import ToyDataset
 
-
+import numpy as np
 
 names = [
     "Nearest Neighbors", 
@@ -45,20 +45,16 @@ classifiers = [
     QuadraticDiscriminantAnalysis()
 ]
 
+ds = ToyDataset()
+
 # model = DecisionTreeClassifier()
 for model_name, model in zip(names, classifiers):
-    x_values, y_values = get_toy_data_baseline()
+    x_train, y_train = ds.next_train_batch()
+    
+    y_train = np.argmax(y_train, axis=1)
 
-
-    n_train = (4 * x_values.shape[0]/5)
-    n_valid = (1 * x_values.shape[0]/5)
-            
-    x_train = x_values[:n_train]
-    x_test = x_values[n_train:(n_train+n_valid)]
-
-    y_train = y_values[:n_train]
-    y_test = y_values[n_train:(n_train+n_valid)]
-
+    x_test, y_test = ds.next_test_batch()
+    y_test = np.argmax(y_test, axis=1)
 
     model.fit(x_train, y_train)
 

@@ -73,6 +73,12 @@ def one_hot_encode(target_v):
 
     return y_v
 
+
+class TaskType(object):
+    CLASSIFICATION = "classification"
+    REGRESSION = "regression"
+
+
 class Dataset(object):
     @property
     def train_shape(self):
@@ -108,6 +114,9 @@ class Dataset(object):
     def test_batches_num(self):
         return self.test_shape[0][0]/self.test_batch_size
 
+    @property
+    def task_type(self):
+        raise NotImplementedError
 
 class MNISTDataset(Dataset):
     def __init__(self):
@@ -165,6 +174,10 @@ class MNISTDataset(Dataset):
     def test_batches_num(self):
         return 10 # TODO
 
+    @property
+    def task_type(self):
+        return TaskType.CLASSIFICATION
+
 
 class ToyDataset(Dataset):
     def __init__(self):
@@ -200,3 +213,48 @@ class ToyDataset(Dataset):
     @property
     def test_batch_size(self):
         return self._xt_v.shape[0]
+
+    @property
+    def task_type(self):
+        return TaskType.CLASSIFICATION
+
+class XorDataset(Dataset):
+    def __init__(self):
+        self._x_v = np.asarray([
+            [0.0, 0.0],
+            [0.0, 1.0],
+            [1.0, 0.0],
+            [1.0, 1.0]
+        ])
+        self._y_v = np.asarray([
+            [0.0],
+            [1.0],
+            [1.0],
+            [0.0]
+        ])
+
+    @property
+    def train_shape(self):
+        return self._x_v.shape, self._y_v.shape
+
+    @property
+    def test_shape(self):
+        return self._x_v.shape, self._y_v.shape
+
+    def next_train_batch(self):
+        return self._x_v, self._y_v
+
+    def next_test_batch(self):
+        return self._x_v, self._y_v
+
+    @property
+    def train_batch_size(self):
+        return self._x_v.shape[0]
+
+    @property
+    def test_batch_size(self):
+        return self._x_v.shape[0]
+
+    @property
+    def task_type(self):
+        return TaskType.REGRESSION
