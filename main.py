@@ -41,7 +41,7 @@ c.fb_factor = 1.0
 c.regularization = 0.0
 c.optimizer = Optimizer.SGD
 # c.optimizer = Optimizer.ADAM
-c.epochs = 1
+c.epochs = 100
 
 # ds = MNISTDataset()
 ds = XorDataset()
@@ -157,11 +157,20 @@ apply_grads_step = tf.group(
 # apply_grads_step = optimizer.minimize(tf.nn.l2_loss(new_states[-1].a - y)) #, var_list=[net.cells[0].F])
 
 
-error_rate = tf.reduce_mean(tf.cast(
-    tf.not_equal(
-        tf.argmax(new_outputs[-1].reconstruction[-1], axis=1),
-        tf.cast(tf.argmax(y, axis=1), tf.int64)
-    ), tf.float32))
+error_rate = (
+    tf.reduce_mean(tf.cast(
+        tf.not_equal(
+            tf.argmax(new_outputs[-1].reconstruction[-1], axis=1),
+            tf.cast(tf.argmax(y, axis=1), tf.int64)
+        ), tf.float32))
+
+    if ds.task_type == TaskType.CLASSIFICATION else
+    tf.reduce_mean(tf.cast(
+        tf.not_equal(
+            tf.cast(tf.round(new_outputs[-1].reconstruction[-1]), tf.int64),
+            tf.cast(y, tf.int64)
+        ), tf.float32))
+)
 
 
 tf.summary.scalar("error_rate", error_rate)
