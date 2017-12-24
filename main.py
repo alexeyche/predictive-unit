@@ -34,14 +34,14 @@ c.adapt_gain = 1.0
 c.tau_m = 1000.0
 
 c.grad_accum_rate = 1.0/c.num_iters
-c.lrate = 0.01 
+c.lrate = 0.05
 c.state_size = (5, )
 c.lrate_factor = (1.0, 1.0)
-c.fb_factor = 1.0
+c.fb_factor = 0.0
 c.regularization = 0.0
 c.optimizer = Optimizer.SGD
 # c.optimizer = Optimizer.ADAM
-c.epochs = 100
+c.epochs = 101
 
 # ds = MNISTDataset()
 ds = XorDataset()
@@ -145,10 +145,17 @@ elif c.optimizer == Optimizer.ADAM:
 else:
     raise Exception(c.optimizer)
 
-grads_and_vars = tuple(
-    (-tf.reduce_mean(s.dF, 0) * c.lrate_factor[li], l.F)
-    for li, (l, s) in enumerate(zip(net.cells, new_states))
+grads_and_vars = (
+    tuple(
+        (-tf.reduce_mean(s.dF, 0) * c.lrate_factor[li], l.F)
+        for li, (l, s) in enumerate(zip(net.cells, new_states))
+    ) 
+    + tuple(
+        (tf.reduce_mean(s.dbias, 0) * c.lrate_factor[li], l.bias)
+        for li, (l, s) in enumerate(zip(net.cells, new_states))
+    )
 )
+
 
 apply_grads_step = tf.group(
     optimizer.apply_gradients(grads_and_vars),
@@ -209,6 +216,7 @@ def run(x_v, y_v, s_v, fb_factor_v, learn=True):
             new_outputs,
             error_rate,
             merged,
+            grads_and_vars,
         ) + ( 
             (apply_grads_step, ) if learn else tuple()
         ),
@@ -226,6 +234,7 @@ def run(x_v, y_v, s_v, fb_factor_v, learn=True):
         sess_out[1], 
         sess_out[2],
         sess_out[3],
+        sess_out[4:]
     )
 
 outs = [PredictiveUnit.Output([],[],[],[],[]) for _ in xrange(len(net.cells))]
@@ -246,7 +255,7 @@ for e in xrange(c.epochs):
     for bi in xrange(ds.train_batches_num):
         x_v, y_v = ds.next_train_batch()
 
-        states_v[bi], train_outs, train_error_rate_b, summ_b = run(x_v, y_v, states_v[bi], c.fb_factor)
+        states_v[bi], train_outs, train_error_rate_b, summ_b, train_debug_vals = run(x_v, y_v, states_v[bi], c.fb_factor)
         train_writer.add_summary(summ_b, e)
         train_error_rate += train_error_rate_b/ds.train_batches_num
         
@@ -258,7 +267,7 @@ for e in xrange(c.epochs):
     for bi in xrange(ds.test_batches_num):
         xt_v, yt_v = ds.next_test_batch()
 
-        states_t_v[bi], test_outs, test_error_rate_b, summ_b = run(xt_v, yt_v, states_t_v[bi], 0.0, learn=False)
+        states_t_v[bi], test_outs, test_error_rate_b, summ_b, test_debug_vals = run(xt_v, yt_v, states_t_v[bi], 0.0, learn=False)
         
         test_writer.add_summary(summ_b, e)
 
@@ -282,7 +291,7 @@ for e in xrange(c.epochs):
     perf[e] = ll
     ter[e] = test_error_rate
 
-    if e % 1 == 0:        
+    if e % 100 == 0:        
         # print np.linalg.norm(sess.run(net.cells[1].F))
         print "e {}, error rate {:.4f} {:.4f}, |fb| {}, error {}".format(
             e, 
