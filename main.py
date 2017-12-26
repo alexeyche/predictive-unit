@@ -22,31 +22,34 @@ class Optimizer(object):
     ADAM = "adam"
 
 
+
+
 c = Config()
-c.weight_init_factor = 0.1
+c.weight_init_factor = 0.5
 
-c.step = 0.01
+c.step = 0.1
 c.tau = 1.0
-c.num_iters = 20
+c.num_iters = 100
 
-c.adaptive = True
+c.predictive = False
+c.adaptive = False
 c.adapt_gain = 1.0
 c.tau_m = 1000.0
 
 c.grad_accum_rate = 1.0/c.num_iters
-c.lrate = 0.05
+c.lrate = 0.0
 c.state_size = (5, )
 c.lrate_factor = (1.0, 1.0)
-c.fb_factor = 0.0
+c.fb_factor = 1.0
 c.regularization = 0.0
 c.optimizer = Optimizer.SGD
 # c.optimizer = Optimizer.ADAM
-c.epochs = 101
+c.epochs = 1
 
 # ds = MNISTDataset()
 ds = XorDataset()
 
-tf.set_random_seed(11)
+tf.set_random_seed(13)
 
 
 
@@ -291,7 +294,7 @@ for e in xrange(c.epochs):
     perf[e] = ll
     ter[e] = test_error_rate
 
-    if e % 100 == 0:        
+    if e % 10 == 0:        
         # print np.linalg.norm(sess.run(net.cells[1].F))
         print "e {}, error rate {:.4f} {:.4f}, |fb| {}, error {}".format(
             e, 
@@ -311,10 +314,13 @@ for e in xrange(c.epochs):
 
 
 
+shl(np.asarray(outs[-1].u), show=False, title="Train")
+shl(np.asarray(outs_t[-1].u), show=False, title="Test")
 
+plt.show()
 
-
-
+# shl(np.asarray(outs[-2].a)[:,-1], show=False, title="Train first layer")
+# shl(np.asarray(outs_t[-2].a)[:,-1], show=True, title="Test first layer")
 
 
 # stats, debdata = run_experiment(c, ds)

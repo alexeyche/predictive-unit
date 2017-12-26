@@ -118,26 +118,33 @@ class PredictiveUnit(RNNCell):
             bias = self._params[1]
 
             x_hat = tf.matmul(s.a, tf.transpose(F))
-
             e = x - x_hat
 
+            if c.predictive:
+                ff = tf.matmul(e, F)
+            else:
+                ff = tf.matmul(x, F)
+
+            # ff = ff + bias
+
             fb = self._fb_factor * feedback
-
-            ff = tf.matmul(e, F)
-
-            dudt = ff + fb
+            
+            dudt = ff + fb #+ tf.random_normal(tf.shape(fb))
 
             u_new = s.u + c.step * dudt/c.tau
             
-            # if c.adaptive:
-            #     a_new = self._act(u_new - s.a_m)
-            # else:
-            #     a_new = self._act(u_new)
-            
-            a_new = self._act(u_new + bias)
+            if c.adaptive:
+                a_new = self._act(u_new + bias - s.a_m)
+            else:
+                a_new = self._act(u_new + bias)
             
             new_dF = s.dF + c.grad_accum_rate * tf.matmul(tf.transpose(e), a_new)
-            
+
+            # if c.predictive:
+            #     new_dF = s.dF + c.grad_accum_rate * tf.matmul(tf.transpose(e), a_new)
+            # else:
+            #     new_dF = s.dF + c.grad_accum_rate * tf.matmul(tf.transpose(x), a_new)
+
             x_hat_new = tf.matmul(a_new, tf.transpose(F))
             
             new_a_m = s.a_m + (c.adapt_gain*s.a - s.a_m)/c.tau_m
@@ -145,7 +152,7 @@ class PredictiveUnit(RNNCell):
             
             return (
                 PredictiveUnit.Output(u_new, a_new, new_a_m, x_hat_new-x, x_hat_new),
-                PredictiveUnit.State(u_new, a_new, new_a_m, x_hat_new-x, new_dF, a_new)
+                PredictiveUnit.State(u_new, a_new, new_a_m, x_hat_new-x, new_dF, u_new)
             )
 
 
