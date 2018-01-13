@@ -21,7 +21,6 @@ y_t = np.asarray([0.5])
 
 
 
-
 net_structure = (1,1)
 
 
