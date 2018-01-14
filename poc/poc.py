@@ -20,18 +20,18 @@ act = Relu()
 np.random.seed(30)
 
 # lrule = "hebb"
-lrule = "hebb_oja"
+# lrule = "hebb_oja"
 # lrule = "hebb_mod"
-# lrule = "bp"
+lrule = "bp"
 
 input_size = 2
 output_size = 1
 batch_size = 4
-net_size = 100
+net_size = 3
 num_iters = 100
 step = 0.1
 
-lrate = 0.001
+lrate = 0.05
 
 x = np.asarray([
     [0.0, 0.0],
@@ -74,7 +74,7 @@ def predictive_dynamics(u0, a0, fb0):
 dynamics = simple_dynamics
 # dynamics = predictive_dynamics
 
-fb_factor = 0.1
+fb_factor = 0.0
 tau_m = 100.0
 adapt_gain = 1.0
 
@@ -100,7 +100,7 @@ db1 = np.zeros(b1.shape)
 am0 = np.zeros((net_size, ))
 amt0 = np.zeros((net_size,))
     
-for e in xrange(1001):
+for e in xrange(500):
     # if e % 10 == 0:
     
     u0 = np.zeros((batch_size, net_size))
@@ -134,6 +134,7 @@ for e in xrange(1001):
             a0, 
             fb0
         )
+
         a0 = act(u0)
 
         am0 += (adapt_gain*np.mean(a0,0) - am0)/tau_m
