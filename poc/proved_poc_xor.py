@@ -111,7 +111,7 @@ def run(fb_factor, predictive, lrate, u0_given=None):
         # W0 += lrate * np.dot((xi - np.dot(a0, W0.T)).T, a0)
         W1 += lrate * np.dot(a0.T, de)
         
-        # b0 -= 0.01 * lrate * np.sum(a0,0)
+        # b0 -= 0.01 * lrate * np.sum(a0,0)  
         # b1 += 0.01 * lrate * np.sum(a1,0)
 
         u0h[i] = u0.copy()
