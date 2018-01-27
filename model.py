@@ -47,7 +47,7 @@ def batch_norm(x, name_scope, training, epsilon=1e-3, decay=0.999, reuse=False):
 
 
 class PredictiveUnit(RNNCell):
-    State = namedtuple("State", ["u", "a", "a_m", "e", "dF", "dbias"])
+    State = namedtuple("State", ["u", "a", "a_m", "e", "dF"])
     Output = namedtuple("Output", ["u", "a", "a_m", "e", "reconstruction"])
 
 
@@ -65,7 +65,7 @@ class PredictiveUnit(RNNCell):
 
     @property
     def state_size(self):
-        return PredictiveUnit.State(self._layer_size, self._layer_size, self._layer_size, self._input_size, (self._input_size, self._layer_size), self._layer_size)
+        return PredictiveUnit.State(self._layer_size, self._layer_size, self._layer_size, self._input_size, (self._input_size, self._layer_size))
 
     @property
     def output_size(self):
@@ -88,22 +88,18 @@ class PredictiveUnit(RNNCell):
         
         c = self._c
 
-        # init = tf.nn.l2_normalize(xavier_init(self._input_size, self._layer_size, c.weight_init_factor), 0)
-        init = xavier_init(self._input_size, self._layer_size, c.weight_init_factor)
+        init = tf.nn.l2_normalize(xavier_init(self._input_size, self._layer_size, c.weight_init_factor), 0)
+        # init = xavier_init(self._input_size, self._layer_size, c.weight_init_factor)
         F = tf.Variable(init)
-        bias = tf.Variable(tf.zeros(self._layer_size))
+        # bias = tf.Variable(tf.zeros(self._layer_size))
         
-        return F, bias
+        return (F, )
 
     @property
     def F(self):
         assert not self._params is None
         return self._params[0]
-    
-    @property
-    def bias(self):
-        assert not self._params is None
-        return self._params[1]
+
     
 
     def __call__(self, input, s, scope=None):
@@ -115,7 +111,6 @@ class PredictiveUnit(RNNCell):
             c = self._c
 
             F = self._params[0]
-            bias = self._params[1]
 
             x_hat = tf.matmul(s.a, tf.transpose(F))
             e = x - x_hat
@@ -125,25 +120,22 @@ class PredictiveUnit(RNNCell):
             else:
                 ff = tf.matmul(x, F)
 
-            # ff = ff + bias
-
             fb = self._fb_factor * feedback
             
-            dudt = ff + fb #+ tf.random_normal(tf.shape(fb))
+            dudt = ff + fb - s.u #+ tf.random_normal(tf.shape(fb))
 
             u_new = s.u + c.step * dudt/c.tau
             
             if c.adaptive:
-                a_new = self._act(u_new + bias - s.a_m)
+                a_new = self._act(u_new)
             else:
-                a_new = self._act(u_new + bias)
+                a_new = self._act(u_new)
             
-            new_dF = s.dF + c.grad_accum_rate * tf.matmul(tf.transpose(e), a_new)
 
-            # if c.predictive:
-            #     new_dF = s.dF + c.grad_accum_rate * tf.matmul(tf.transpose(e), a_new)
-            # else:
-            #     new_dF = s.dF + c.grad_accum_rate * tf.matmul(tf.transpose(x), a_new)
+            if c.predictive:
+                new_dF = s.dF + c.grad_accum_rate * tf.matmul(tf.transpose(e), a_new - 0.02) #tf.reduce_mean(s.a_m))
+            else:
+                new_dF = s.dF + c.grad_accum_rate * tf.matmul(tf.transpose(x), a_new - 0.02)
 
             x_hat_new = tf.matmul(a_new, tf.transpose(F))
             
@@ -152,7 +144,7 @@ class PredictiveUnit(RNNCell):
             
             return (
                 PredictiveUnit.Output(u_new, a_new, new_a_m, x_hat_new-x, x_hat_new),
-                PredictiveUnit.State(u_new, a_new, new_a_m, x_hat_new-x, new_dF, u_new)
+                PredictiveUnit.State(u_new, a_new, new_a_m, x_hat_new-x, new_dF)
             )
 
 
@@ -174,7 +166,6 @@ class OutputUnit(PredictiveUnit):
             c = self._c
 
             F = self._params[0]
-            bias = self._params[1]
 
             u_new = tf.matmul(x, F)
 
@@ -194,7 +185,7 @@ class OutputUnit(PredictiveUnit):
             
             return (
                 PredictiveUnit.Output(u_new, a_new, a_new, e, a_new),
-                PredictiveUnit.State(u_new, a_new, a_new, e, new_dF, e_y)
+                PredictiveUnit.State(u_new, a_new, a_new, e, new_dF)
             )
 
 
@@ -258,6 +249,5 @@ def reset_state_fn(state):
         state.a_m,
         state.e,
         np.zeros(state.dF.shape),
-        np.zeros(state.dbias.shape),
     )
 

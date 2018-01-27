@@ -22,29 +22,33 @@ class Optimizer(object):
     ADAM = "adam"
 
 
+def to_sparse_ts(d, num_iters, t=10):
+    d_ts = np.zeros((num_iters,) + d.shape)
+    d_ts[t] = d.copy()
+    return smooth_batch_matrix(d_ts)
 
 
 c = Config()
-c.weight_init_factor = 0.5
+c.weight_init_factor = 1.0
 
 c.step = 0.1
 c.tau = 1.0
 c.num_iters = 100
 
-c.predictive = False
+c.predictive = True
 c.adaptive = False
-c.adapt_gain = 1.0
+c.adapt_gain = 10.0
 c.tau_m = 1000.0
 
 c.grad_accum_rate = 1.0/c.num_iters
-c.lrate = 0.0
-c.state_size = (5, )
+c.lrate = 50.0
+c.state_size = (30, )
 c.lrate_factor = (1.0, 1.0)
 c.fb_factor = 1.0
 c.regularization = 0.0
 c.optimizer = Optimizer.SGD
 # c.optimizer = Optimizer.ADAM
-c.epochs = 1
+c.epochs = 1000
 
 # ds = MNISTDataset()
 ds = XorDataset()
@@ -59,12 +63,13 @@ tf.set_random_seed(13)
 # def run_experiment(c, ds):
 (_, input_size), (_, output_size) = ds.train_shape
 
-output_act = tf.nn.sigmoid if ds.task_type == TaskType.REGRESSION else tf.nn.softmax
+# output_act = tf.nn.sigmoid if ds.task_type == TaskType.REGRESSION else tf.nn.softmax
+output_act = tf.identity
 
 
+xt = tf.placeholder(tf.float32, shape=(c.num_iters, None, input_size), name="xt")
+yt = tf.placeholder(tf.float32, shape=(c.num_iters, None, output_size), name="yt")
 
-x = tf.placeholder(tf.float32, shape=(None, input_size), name="x")
-y = tf.placeholder(tf.float32, shape=(None, output_size), name="y")
 is_training = tf.placeholder(tf.bool, shape=(), name="is_training")
 fb_factor = tf.placeholder(tf.float32, shape=(), name="fb_factor")
 
@@ -105,6 +110,9 @@ Bs = [tf.Variable(tf.random_normal([output_size, cell.layer_size])) for cell in 
 
 new_outputs = [PredictiveUnit.Output([],[],[],[],[]) for _ in xrange(len(net.cells))]
 
+xt_u = tf.unstack(xt)
+yt_u = tf.unstack(yt)
+
 states_it = states
 for i in xrange(c.num_iters):    
     new_states = []    
@@ -113,11 +121,11 @@ for i in xrange(c.num_iters):
         with tf.variable_scope("layer{}".format(li), reuse=i>0):
             last_layer = li == len(states_it)-1
             
-            input_to_layer = x if li == 0 else new_states[-1].a
+            input_to_layer = xt_u[i] if li == 0 else new_states[-1].a
 
             if last_layer:
                 if isinstance(cell, OutputUnit):
-                    feedback_to_layer = y
+                    feedback_to_layer = yt_u[i]
                 elif isinstance(cell, PredictiveUnit):
                     feedback_to_layer = tf.zeros((tf.shape(x)[0], cell.feedback_size))
             else:
@@ -153,15 +161,12 @@ grads_and_vars = (
         (-tf.reduce_mean(s.dF, 0) * c.lrate_factor[li], l.F)
         for li, (l, s) in enumerate(zip(net.cells, new_states))
     ) 
-    + tuple(
-        (tf.reduce_mean(s.dbias, 0) * c.lrate_factor[li], l.bias)
-        for li, (l, s) in enumerate(zip(net.cells, new_states))
-    )
 )
 
 
 apply_grads_step = tf.group(
     optimizer.apply_gradients(grads_and_vars),
+    tf.assign(net.cells[0].F, tf.nn.l2_normalize(net.cells[0].F, 0))
 )
 
 # apply_grads_step = optimizer.minimize(tf.nn.l2_loss(new_states[-1].a - y)) #, var_list=[net.cells[0].F])
@@ -175,11 +180,7 @@ error_rate = (
         ), tf.float32))
 
     if ds.task_type == TaskType.CLASSIFICATION else
-    tf.reduce_mean(tf.cast(
-        tf.not_equal(
-            tf.cast(tf.round(new_outputs[-1].reconstruction[-1]), tf.int64),
-            tf.cast(y, tf.int64)
-        ), tf.float32))
+    tf.reduce_mean(tf.square(yt[10] - new_outputs[-1].reconstruction[10]))
 )
 
 
@@ -212,7 +213,7 @@ init_state_fn = lambda batch_size: tuple(
 
 
 
-def run(x_v, y_v, s_v, fb_factor_v, learn=True):
+def run(xt_v, yt_v, s_v, fb_factor_v, learn=True):
     sess_out = sess.run(
         (
             new_states,
@@ -224,8 +225,8 @@ def run(x_v, y_v, s_v, fb_factor_v, learn=True):
             (apply_grads_step, ) if learn else tuple()
         ),
         {
-            x: x_v,
-            y: y_v,
+            xt: xt_v,
+            yt: yt_v,
             states: s_v,
             fb_factor: fb_factor_v,
             is_training: learn
@@ -248,17 +249,20 @@ fb_norm = np.zeros((c.epochs, len(net.cells)-1))
 ter = np.zeros(c.epochs)
 
 
-states_v = [init_state_fn(ds.train_batch_size) for bi in xrange(ds.train_batches_num)]
-states_t_v = [init_state_fn(ds.test_batch_size) for bi in xrange(ds.test_batches_num)]
 
 
 for e in xrange(c.epochs):
+    states_v = [init_state_fn(ds.train_batch_size) for bi in xrange(ds.train_batches_num)]
+    states_t_v = [init_state_fn(ds.test_batch_size) for bi in xrange(ds.test_batches_num)]
 
     train_error_rate = 0.0
     for bi in xrange(ds.train_batches_num):
         x_v, y_v = ds.next_train_batch()
 
-        states_v[bi], train_outs, train_error_rate_b, summ_b, train_debug_vals = run(x_v, y_v, states_v[bi], c.fb_factor)
+        xt_v = to_sparse_ts(x_v, c.num_iters)
+        yt_v = to_sparse_ts(y_v, c.num_iters)
+
+        states_v[bi], train_outs, train_error_rate_b, summ_b, train_debug_vals = run(xt_v, yt_v, states_v[bi], c.fb_factor)
         train_writer.add_summary(summ_b, e)
         train_error_rate += train_error_rate_b/ds.train_batches_num
         
@@ -268,13 +272,17 @@ for e in xrange(c.epochs):
     per_layer_error = np.zeros(len(states_t_v[0])-1)
 
     for bi in xrange(ds.test_batches_num):
-        xt_v, yt_v = ds.next_test_batch()
+        xtest_v, ytest_v = ds.next_test_batch()
 
-        states_t_v[bi], test_outs, test_error_rate_b, summ_b, test_debug_vals = run(xt_v, yt_v, states_t_v[bi], 0.0, learn=False)
+        xtest_t_v = to_sparse_ts(xtest_v, c.num_iters, t=10)
+        ytest_t_v = to_sparse_ts(ytest_v, c.num_iters, t=10)
+
+        states_t_v[bi], test_outs, test_error_rate_b, summ_b, test_debug_vals = run(xtest_t_v, ytest_t_v, states_t_v[bi], 0.0, learn=False)
         
         test_writer.add_summary(summ_b, e)
 
-        ll += log_loss(yt_v, states_t_v[bi][-1].a)/ds.test_batches_num
+        # ll += log_loss(yt_v, states_t_v[bi][-1].a)/ds.test_batches_num
+        ll += np.sum((ytest_v - test_outs[-1][-1][10])**2.0)/ds.test_batches_num
         test_error_rate += test_error_rate_b/ds.test_batches_num
         fb_norm_e += np.asarray([np.linalg.norm(le.e) for le in states_t_v[bi][1:]])/ds.test_batches_num
         per_layer_error += np.asarray([np.sum(s.e ** 2.0) for s in states_t_v[bi][:-1] ])/ds.test_batches_num
@@ -314,10 +322,10 @@ for e in xrange(c.epochs):
 
 
 
-shl(np.asarray(outs[-1].u), show=False, title="Train")
-shl(np.asarray(outs_t[-1].u), show=False, title="Test")
+# shl(np.asarray(outs[-1].a), show=False, title="Train")
+# shl(np.asarray(outs_t[-1].u), show=False, title="Test")
 
-plt.show()
+# plt.show()
 
 # shl(np.asarray(outs[-2].a)[:,-1], show=False, title="Train first layer")
 # shl(np.asarray(outs_t[-2].a)[:,-1], show=True, title="Test first layer")

@@ -50,6 +50,15 @@ def smooth_matrix(m, sigma=0.01, filter_size=50):
         res[:, dim_idx] = smooth(m[:, dim_idx], sigma, filter_size)
     return res
 
+
+def smooth_batch_matrix(m, sigma=0.01, filter_size=50):
+    res = np.zeros(m.shape)
+    for dim_idx0 in xrange(m.shape[1]):
+        for dim_idx1 in xrange(m.shape[2]):
+            res[:, dim_idx0, dim_idx1] = smooth(m[:, dim_idx0, dim_idx1], sigma, filter_size)
+    return res
+
+
 def shl(*vector, **kwargs):
     plt.figure(figsize=kwargs.get("figsize", DEFAULT_FIG_SIZE))
     
