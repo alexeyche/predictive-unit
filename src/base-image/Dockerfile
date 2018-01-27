@@ -1,35 +1,56 @@
 FROM ubuntu
 
+ENV LD_LIBRARY_PATH "/usr/local/lib"
+
 ADD https://bitbucket.org/eigen/eigen/get/3.3.4.tar.bz2 /contrib/eigen.tar.bz2
+ADD https://github.com/google/protobuf/archive/v3.5.1.tar.gz /contrib/protobuf.tar.gz
+ADD https://github.com/pocoproject/poco/archive/poco-1.8.1-release.tar.gz /contrib/poco.tar.gz
 
 WORKDIR /contrib
 
 RUN apt-get update
-RUN apt-get install -y bzip2
-RUN apt-get install -y build-essential cmake
-RUN apt-get install -y libblas-dev liblapack-dev
-RUN mkdir eigen && tar -xf eigen.tar.bz2 -C eigen
-RUN cd eigen; cmake ./eigen*; make install; cd ..
+RUN apt-get install -y \
+	build-essential \
+	gdb \
+	cmake \
+	bzip2 \
+	unzip \
+	autoconf \
+	libtool \
+	golang \
+	libspdlog-dev \
+	libblas-dev \
+	liblapack-dev \
+	git \
+	openssl \
+	libssl-dev \
+	libiodbc2 \
+	libiodbc2-dev \
+	curl \
+	vim \
+	sudo
 
-RUN apt-get install -y git
+RUN mkdir eigen && tar -xf eigen.tar.bz2 -C eigen; \
+    cd eigen; \
+	cmake ./eigen*; \
+	make -j6 install
+
 RUN git clone https://github.com/jbeder/yaml-cpp
-RUN cd yaml-cpp; git checkout 86ae3a5aa7e2109d849b2df89176d6432a35265d; cmake -DBUILD_SHARED_LIBS=ON .; make -j install
+RUN cd yaml-cpp; \
+	git checkout 86ae3a5aa7e2109d849b2df89176d6432a35265d; \
+	cmake -DBUILD_SHARED_LIBS=ON .; \
+	make -j6 install
 
-ENV LD_LIBRARY_PATH "/usr/local/lib"
-
-RUN apt-get install -y libspdlog-dev
-RUN apt-get install -y gdb
-
-RUN apt-get install -y autoconf libtool
-RUN git clone -b v1.8.x https://github.com/grpc/grpc
-
-RUN cd grpc; git submodule update --init
-
-RUN apt-get install -y golang curl unzip
-
-RUN cd grpc/third_party/protobuf; \
+RUN tar -xf /contrib/protobuf.tar.gz -C .; \
+	cd protobuf-*; \
  	./autogen.sh; \
  	./configure --enable-shared; \ 
-	make -j8 install
+	make -j6 install
 
-RUN mkdir grpc-build; cd grpc-build; cmake -DgRPC_PROTOBUF_PROVIDER=package /contrib/grpc; make -j8 install
+RUN tar -xf /contrib/poco.tar.gz -C .; \
+	cd poco-*; \
+	mkdir poco_build; \
+	cd poco_build; \
+	cmake ..; \
+	make -j6 install
+

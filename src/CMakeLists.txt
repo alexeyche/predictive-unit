@@ -46,10 +46,7 @@ include_directories(/usr/include/spdlog)
 include(cmake/FindProtobuf.cmake)
 
 find_package(Threads)
-
-set(protobuf_source_dir /contrib/grpc/third_party/protobuf)
-include(/contrib/grpc/third_party/protobuf/cmake/libprotobuf.cmake)
-
+find_package(Protobuf REQUIRED)
 include_directories(${PROTOBUF_INCLUDE_DIRS})
 
 add_subdirectory(predictive-unit)
