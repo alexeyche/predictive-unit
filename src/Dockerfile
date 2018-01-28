@@ -1,12 +1,18 @@
 FROM pu-base
 
-RUN useradd -ms /bin/bash pu-user
+
+RUN adduser --disabled-password --gecos '' pu-user
+RUN adduser pu-user sudo
+RUN echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+
 
 WORKDIR /home/pu-user/predictive-unit-build
+
 RUN chown pu-user /home/pu-user/predictive-unit-build
 RUN chgrp pu-user /home/pu-user/predictive-unit-build
 
 USER pu-user
+
 
 ARG PU_PATH 
 ENV PU_PATH ${PU_PATH:-/usr/share/predictive-unit}

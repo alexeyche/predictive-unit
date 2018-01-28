@@ -43,8 +43,6 @@ include_directories(/usr/local/include/eigen3)
 include_directories(/usr/local/include/yaml-cpp)
 include_directories(/usr/include/spdlog)
 
-include(cmake/FindProtobuf.cmake)
-
 find_package(Threads)
 find_package(Protobuf REQUIRED)
 include_directories(${PROTOBUF_INCLUDE_DIRS})

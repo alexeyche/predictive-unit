@@ -28,7 +28,8 @@ RUN apt-get install -y \
 	libiodbc2-dev \
 	curl \
 	vim \
-	sudo
+	sudo \
+	python
 
 RUN mkdir eigen && tar -xf eigen.tar.bz2 -C eigen; \
     cd eigen; \
