@@ -43,10 +43,22 @@ include_directories(/usr/local/include/eigen3)
 include_directories(/usr/local/include/yaml-cpp)
 include_directories(/usr/include/spdlog)
 
-find_package(Threads)
+find_package(Threads REQUIRED)
 find_package(Protobuf REQUIRED)
+
+find_package(Poco REQUIRED Net Data) 
+
+set(POCO_LIBS 
+  /usr/local/lib/libPocoNet.so
+  /usr/local/lib/libPocoFoundation.so
+)
+
 include_directories(${PROTOBUF_INCLUDE_DIRS})
 
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
 add_subdirectory(predictive-unit)
-add_subdirectory(predictive-unit-server)
+add_subdirectory(predictive-unit-bin)
 add_subdirectory(predictive-unit-test)

@@ -1,5 +1,5 @@
 SET(SOURCES
-  model-config.proto
+  layer-config.proto
 )
 
 

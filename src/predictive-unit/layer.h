@@ -18,9 +18,9 @@ namespace NPredUnit {
 
 
 	template <ui32 BatchSize, ui32 LayerSize, ui32 InputSize, ui32 FilterSize>
-	class TModel {
+	class TLayer {
 	public:
-		TModel()
+		TLayer()
 			: Membrane(TMatrix<BatchSize, LayerSize>::Zero())
 			, Activation(TMatrix<BatchSize, LayerSize>::Zero())
  		{			

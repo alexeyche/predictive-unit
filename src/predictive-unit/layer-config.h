@@ -2,7 +2,7 @@
 
 namespace NPredUnit {
 	
-	struct TModelConfig {
+	struct TLayerConfig {
 		ui32 BatchSize;
 	};
 

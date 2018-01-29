@@ -1,7 +1,0 @@
-syntax = "proto3";package NPredUnitPb;
-
-
-message TModelConfig {
-    uint32 BatchSize = 1;
-}
-

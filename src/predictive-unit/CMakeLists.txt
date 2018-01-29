@@ -2,7 +2,7 @@
 set(SOURCES
   log.cpp
   error.cpp
-  model.cpp
+  layer.cpp
   optional.cpp
 )
 
@@ -30,9 +30,8 @@ add_library(
   ${PU_SRCS}
 )
 
-
 target_link_libraries(
 	predictive-unit
-	
+  
 	predictive-unit-pb
 )
