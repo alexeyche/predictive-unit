@@ -10,20 +10,13 @@
 #include <Poco/Net/StreamSocket.h>
 #include <Poco/Net/ServerSocket.h>
 #include <Poco/Exception.h>
-#include <Poco/Util/Option.h>
-#include <Poco/Util/OptionSet.h>
-#include <Poco/Util/HelpFormatter.h>
 
 #include <iostream>
 
 namespace NPredUnit {
 
 
-	class TDispatcherConnection: public  Poco::Net::TCPServerConnection
-		/// This class handles all client connections.
-		///
-		/// A string with the current date and time is sent back to the client.
-	{
+	class TDispatcherConnection: public  Poco::Net::TCPServerConnection {
 	public:
 		TDispatcherConnection(const Poco::Net::StreamSocket& s):
 			Poco::Net::TCPServerConnection(s)
@@ -38,7 +31,7 @@ namespace NPredUnit {
 				socket().sendBytes(ss.c_str(), ss.size());
 			
 			} catch (Poco::Exception& exc) {
-				std::cout << "Exception " << exc.message();
+				L_ERROR << "Exception " << exc.message();
 			}
 		}
 	};
@@ -68,12 +61,16 @@ namespace NPredUnit {
 		
 		void Run() {
 			Server.start();
+	
 			L_INFO << "Listening port " << Port;
 			Terminate.wait();
+	
 			L_INFO << "Got terminate signal, going down";
 			Server.stop();
 		}
 
+	private:
+	
 		ui32 Port;
 		Poco::Net::ServerSocket Socket;
 		Poco::Net::TCPServer Server;

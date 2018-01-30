@@ -51,6 +51,7 @@ find_package(Poco REQUIRED Net Data)
 set(POCO_LIBS 
   /usr/local/lib/libPocoNet.so
   /usr/local/lib/libPocoFoundation.so
+  /usr/local/lib/libPocoUtil.so
 )
 
 include_directories(${PROTOBUF_INCLUDE_DIRS})
