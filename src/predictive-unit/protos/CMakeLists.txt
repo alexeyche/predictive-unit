@@ -1,5 +1,6 @@
 SET(SOURCES
   layer-config.proto
+  messages.proto
 )
 
 

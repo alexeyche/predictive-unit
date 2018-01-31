@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package NPredUnitPb;
+
+
+message TMessageType {
+	enum EMessageType {
+		START_SIM = 0;
+	}
+
+	EMessageType MessageType = 1;
+}
+
+
+message TStartSim {
+	uint32 SimulationTime = 1;		
+}
+

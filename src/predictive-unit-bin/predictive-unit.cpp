@@ -1,11 +1,11 @@
 
 #include "dispatcher.h"
-#include "arg.h"
 
 #include <predictive-unit/log.h>
 #include <predictive-unit/protos/layer-config.pb.h>
 #include <predictive-unit/layer.h>
-#include <predictive-unit/maybe.h>
+#include <predictive-unit/util/maybe.h>
+#include <predictive-unit/util/argument.h>
 
 #include <Poco/Util/Option.h>
 #include <Poco/Util/OptionSet.h>
@@ -15,37 +15,111 @@
 using namespace NPredUnit;
 
 
-int main(int argc, const char** argv) {
-	Poco::Util::OptionSet mainOptions;
-	
-	
+
+int server(const TVector<TString>& argsVec) {
 	ui32 port = 8080;
 	bool help = false;
-	
+
 	auto args = ArgumentSet(
-		Argument("--port", "-p", port),
-		Argument("--help", "-h", help)
+		Argument("--port", "-p", port, "the port for TCPServer, default 8080"),
+		Argument("--help", "-h", help, "This option will print this menu", /*required*/ false, /*stopProcessingAfterMatch*/ true)
 	);
 
-	args.Parse(argc, argv);
-	
-	// TArgSet(
-	// 	TArg("--port", "-p", port)
-	// );
+	if (!args.TryParse(argsVec)) {
+		return 1;
+	}
 
-	// for (auto it=args.begin(); it != args.end(); ++it) {
-	// 	if (*it == "--port" || *it == "-p") {
-	// 		it = args.erase(it);
-	// 		ENSURE(it != args.end(), "Need option for port");
-	// 		port = std::stoi(*it);
-	// 	}
-	// }
-	
-
+	if (help) {
+		std::cout << "server\n";
+		args.GenerateHelp(std::cout);
+		return 1;
+	}
 
 	TDispatcher dispatcher(port);
 
 	dispatcher.Run();
 
 	return 0;
+}
+
+int client(const TVector<TString>& argsVec) {
+	bool help = false;
+	
+	auto args = ArgumentSet(
+		Argument("--help", "-h", help, "This option will print this menu", /*required*/ false, /*stopProcessingAfterMatch*/ true)
+	);
+	
+	if (!args.TryParse(argsVec)) {
+		return 1;
+	}
+
+	if (argsVec.empty() || help) {
+		std::cout << "client\n";
+		args.GenerateHelp(std::cout);
+		return 1;
+	}
+
+	return 0;
+}
+
+
+typedef int(*TMainEntryFun)(const TVector<TString>& args);
+
+
+void GenerateHelpWithSubPrograms(const TMap<TString, TMainEntryFun>& subPrograms) {
+	for (const auto& subp: subPrograms) {
+		subp.second({"--help"});
+		std::cout << "\n";
+	}
+}
+
+int main(int argc, const char** argv) {
+	TMap<TString, TMainEntryFun> subProgramEntries = {
+		{"server", &server},
+		{"client", &client}
+	};
+
+	TVector<TString> argsVec;
+	TVector<TString> subProgramArgsVec;
+
+	TMap<TString, TMainEntryFun>::iterator subProgramToCallIt = subProgramEntries.end();
+	int i = 1;
+	while (i < argc) {
+		auto subProgramIt = subProgramEntries.find(argv[i]);
+		if (subProgramIt != subProgramEntries.end()) {
+			subProgramToCallIt = subProgramIt;
+		} else
+		if (subProgramToCallIt == subProgramEntries.end()) {
+			argsVec.push_back(argv[i]);
+		} else {
+			subProgramArgsVec.push_back(argv[i]);
+		}
+				
+		++i;
+	}
+	
+	bool help = false;
+	auto args = ArgumentSet(
+		Argument("--help", "-h", help, "This option will print this menu", /*required*/ false, /*stopProcessingAfterMatch*/ true)
+	);
+
+
+	if (!args.TryParse(argsVec)) {
+		return 1;
+	}
+
+	if ((argsVec.empty() && (subProgramToCallIt == subProgramEntries.end())) || help) {
+		std::cout << "\nCommon options to the program:\n";
+		args.GenerateHelp(std::cout);
+		std::cout << "\n";
+		GenerateHelpWithSubPrograms(subProgramEntries);
+		return 1;
+	}
+
+	if (subProgramToCallIt == subProgramEntries.end()) {
+		L_ERROR << "Failed to find subprogram to call";
+		return 1;
+	}
+
+	return subProgramToCallIt->second(subProgramArgsVec);
 }
