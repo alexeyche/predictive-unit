@@ -16,4 +16,11 @@ namespace NPredUnit {
 		return ++it;
 	}
 
+	template <>
+	TVector<TString>::const_iterator TArgument<TString>::SetValue(const TVector<TString>& args, TVector<TString>::const_iterator it) {
+		++it;
+		ENSURE(it != args.end(), "Need value for command line option: " << FullName);
+		DstValue = *it;
+		return ++it;
+	}
 }

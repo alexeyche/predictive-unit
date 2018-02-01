@@ -3,6 +3,9 @@ add_executable(
 	predictive-unit-bin 
 
  	predictive-unit.cpp
+ 	defaults.cpp
+ 	dispatcher.cpp
+ 	client.cpp
 )
 
 set_target_properties(

@@ -1,5 +1,8 @@
 
 #include "dispatcher.h"
+#include "client.h"
+#include "defaults.h"
+
 
 #include <predictive-unit/log.h>
 #include <predictive-unit/protos/layer-config.pb.h>
@@ -7,17 +10,11 @@
 #include <predictive-unit/util/maybe.h>
 #include <predictive-unit/util/argument.h>
 
-#include <Poco/Util/Option.h>
-#include <Poco/Util/OptionSet.h>
-#include <Poco/Util/OptionProcessor.h>
-#include <Poco/Util/HelpFormatter.h>
-
 using namespace NPredUnit;
 
 
-
 int server(const TVector<TString>& argsVec) {
-	ui32 port = 8080;
+	ui32 port = TDefaults::ServerPort;
 	bool help = false;
 
 	auto args = ArgumentSet(
@@ -44,20 +41,27 @@ int server(const TVector<TString>& argsVec) {
 
 int client(const TVector<TString>& argsVec) {
 	bool help = false;
-	
+	TString server = TDefaults::ServerHost;
+	ui32 port = TDefaults::ServerPort;
+
 	auto args = ArgumentSet(
-		Argument("--help", "-h", help, "This option will print this menu", /*required*/ false, /*stopProcessingAfterMatch*/ true)
+		Argument("--help", "-h", help, "This option will print this menu", /*required*/ false, /*stopProcessingAfterMatch*/ true),
+		Argument("--server", "-s", server, "Host of the server"),
+		Argument("--port", "-p", port, "the port for TCPServer, default 8080")
 	);
 	
 	if (!args.TryParse(argsVec)) {
 		return 1;
 	}
 
-	if (argsVec.empty() || help) {
+	if (help) {
 		std::cout << "client\n";
 		args.GenerateHelp(std::cout);
 		return 1;
 	}
+
+	TClient cli(server, port);
+	cli.SendData();
 
 	return 0;
 }
