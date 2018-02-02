@@ -6,6 +6,7 @@ add_executable(
  	defaults.cpp
  	dispatcher.cpp
  	client.cpp
+ 	protocol.cpp
 )
 
 set_target_properties(

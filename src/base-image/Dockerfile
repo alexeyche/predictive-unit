@@ -29,7 +29,10 @@ RUN apt-get install -y \
 	curl \
 	vim \
 	sudo \
-	python
+	python \
+	python-pip
+
+RUN pip install protobuf
 
 RUN mkdir eigen && tar -xf eigen.tar.bz2 -C eigen; \
     cd eigen; \

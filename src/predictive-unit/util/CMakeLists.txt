@@ -3,6 +3,7 @@ set(SOURCES
     argument.cpp
     optional.cpp
     maybe.cpp
+    string.cpp
 )
 
 set(DIR_SRCS)

@@ -2,6 +2,7 @@
 
 #include "simulator.h"
 #include "defaults.h"
+#include "protocol.h"
 
 #include <sys/socket.h>
 
@@ -20,17 +21,9 @@
 #include <Poco/Net/ServerSocket.h>
 #include <Poco/Exception.h>
 
-#include <google/protobuf/message.h>
-#include <google/protobuf/io/zero_copy_stream_impl.h>
-#include <google/protobuf/io/coded_stream.h>
-
-
-namespace NPb = google::protobuf;
-namespace NPbIO = google::protobuf::io;
 
 
 namespace NPredUnit {
-
 
 	class TDispatcherConnection: public  Poco::Net::TCPServerConnection {
 	public:
@@ -42,82 +35,31 @@ namespace NPredUnit {
 		
 		void run() {
 			Poco::Net::StreamSocket& sck = socket();
+			try {
+				L_INFO << "Got connection from " << sck.peerAddress().toString();		
 
-			L_INFO << "Got connection from " << sck.peerAddress().toString();
-			
-			ui32 headerSize = sizeof(NPb::uint32) + sizeof(NPb::uint32);
-			char buf[headerSize];
-			
-			ui32 nRec = 0;
-			while (nRec < headerSize) {
-				nRec += sck.receiveBytes(buf + nRec, headerSize, MSG_PEEK);
-			}
-			
-			L_INFO << "Recieved " << nRec << " bytes";
+				THeader header = ReadMessageHeaderFromSocket(sck);
+				L_INFO << "Got message type " << header.MessageType << " of size " << header.MessageSize << "b"; 
 
-			NPb::uint32 messageType;
-			NPb::uint32 messageSize;
-			{
-	  			NPb::io::ArrayInputStream ais(buf, sizeof(NPb::uint32) + sizeof(NPb::uint32));
-	  			NPbIO::CodedInputStream codedInput(&ais);
+				switch (header.MessageType) {
+					case NPredUnitPb::TMessageType::START_SIM:
+						
+						NPredUnitPb::TStartSim startSimMessage;
+						ReadProtobufMessageFromSocket(sck, header.MessageSize, &startSimMessage);
 
-	  			bool succ0 = codedInput.ReadVarint32(&messageType);
-	  			ENSURE(succ0, "Failed to read message type");
-	  			bool succ1 = codedInput.ReadVarint32(&messageSize);
-	  			ENSURE(succ1, "Failed to read message size");
-			}
-			
-			L_INFO << "Got message type " << messageType << " of size " << messageSize << "b"; 
+		  				L_INFO << "Got message" << startSimMessage.simulationtime() << " - " << startSimMessage.DebugString();
+		  			
+						// start sim
+						Sim.StartSimulation(startSimMessage);
+						break;
+				} 
 
-			if (messageType == NPredUnitPb::TMessageType::START_SIM) {
-				char* messageBytes = new char[headerSize + messageSize];
-				
-				ui32 totalReceived = 0;
-				while (totalReceived < (messageSize + headerSize)) {
-					totalReceived += sck.receiveBytes(messageBytes + totalReceived, TDefaults::ServerSocketBuffSize);
-					L_INFO << "R:" << totalReceived;
-				}
-
-	  			for (ui32 bi=0; bi < messageSize; ++bi) {
-					L_INFO << (int)messageBytes[bi];	
-				}
-
-				NPredUnitPb::TStartSim startSimMessage;
-				// {
-				// 	bool succ = startSimMessage.ParseFromArray(messageBytes, messageSize);
-		  // 			if (!succ) {
-		  // 				L_ERROR << "Failed to read protobuf 0";	
-		  // 			}
-				// }
-				{
-					NPb::io::ArrayInputStream aisM(messageBytes, headerSize + messageSize);
-		  			NPbIO::CodedInputStream codedInputM(&aisM);
-	
-		  			bool succ0 = codedInputM.ReadVarint32(&messageType);
-		  			ENSURE(succ0, "Failed to read message type");
-		  			bool succ1 = codedInputM.ReadVarint32(&messageSize);
-		  			ENSURE(succ1, "Failed to read message size");
-
-		  			bool succ = startSimMessage.ParseFromCodedStream(&codedInputM);
-		  			if (!succ) {
-		  				L_ERROR << "Failed to read protobuf 1";	
-		  			}
-				}
-	  			
-	  			L_INFO << "Got message" << startSimMessage.simulationtime() << " - " << startSimMessage.DebugString();
-	  			
-	  			delete[] messageBytes;
-
-	  			Sim.StartSimulation(startSimMessage);
+			} catch (Poco::Exception& err) {
+				L_ERROR << "Got POCO error: " << err.message();
+			} catch (TErrException& err) {
+				L_ERROR << "Got error: " << err.what();
 			}
 
-			// try {
-			// 	TString ss("asd");
-			// 	socket().sendBytes(ss.c_str(), ss.size());
-			
-			// } catch (Poco::Exception& exc) {
-			// 	L_ERROR << "Exception " << exc.message();
-			// }
 		}
 	private:
 	

@@ -11,6 +11,9 @@ foreach(file ${SOURCES})
 endforeach()
 
 PROTOBUF_GENERATE_CPP(PROTO_SRCS PROTO_HDRS ${FULL_PATH_SOURCES})
+PROTOBUF_GENERATE_PYTHON(PROTO_PY ${FULL_PATH_SOURCES})
+
+add_custom_target(generate_proto ALL DEPENDS ${PROTO_PY})
 
 ADD_LIBRARY(
 	predictive-unit-pb SHARED 

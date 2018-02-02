@@ -1,7 +1,10 @@
 
+#include <fstream>
+
 #include "dispatcher.h"
 #include "client.h"
 #include "defaults.h"
+#include "protocol.h"
 
 
 #include <predictive-unit/log.h>
@@ -9,8 +12,10 @@
 #include <predictive-unit/layer.h>
 #include <predictive-unit/util/maybe.h>
 #include <predictive-unit/util/argument.h>
+#include <predictive-unit/util/string.h>
 
 using namespace NPredUnit;
+using namespace NPredUnit::NStr;
 
 
 int server(const TVector<TString>& argsVec) {
@@ -43,11 +48,14 @@ int client(const TVector<TString>& argsVec) {
 	bool help = false;
 	TString server = TDefaults::ServerHost;
 	ui32 port = TDefaults::ServerPort;
+	
+	TString protobufSourceToRead;
 
 	auto args = ArgumentSet(
 		Argument("--help", "-h", help, "This option will print this menu", /*required*/ false, /*stopProcessingAfterMatch*/ true),
 		Argument("--server", "-s", server, "Host of the server"),
-		Argument("--port", "-p", port, "the port for TCPServer, default 8080")
+		Argument("--port", "-p", port, "the port for TCPServer, default 8080"),
+		Argument("--file", "-f", protobufSourceToRead, TStringBuilder() << "Read protobuf file, default: /dev/stdin")
 	);
 	
 	if (!args.TryParse(argsVec)) {
@@ -58,6 +66,15 @@ int client(const TVector<TString>& argsVec) {
 		std::cout << "client\n";
 		args.GenerateHelp(std::cout);
 		return 1;
+	}
+	
+
+	if (protobufSourceToRead.empty()) {
+		ReadProtobufMessage(std::cin);
+	} else {
+		std::ifstream ifile(protobufSourceToRead);
+		ENSURE(ifile, "Failed to open file: " << protobufSourceToRead);
+		ReadProtobufMessage(ifile);
 	}
 
 	TClient cli(server, port);

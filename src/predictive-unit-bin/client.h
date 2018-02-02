@@ -45,8 +45,8 @@ namespace NPredUnit {
 					NPb::io::ArrayOutputStream aos(buf, bytesToSend);
 		  			NPbIO::CodedOutputStream codedOutput(&aos);
 
-		  			codedOutput.WriteVarint32(messageType);
-		  			codedOutput.WriteVarint32(messageSize);
+		  			codedOutput.WriteLittleEndian32(messageType);
+		  			codedOutput.WriteLittleEndian32(messageSize);
 		  			startSimMessage.SerializeToCodedStream(&codedOutput);
 				}
 				
