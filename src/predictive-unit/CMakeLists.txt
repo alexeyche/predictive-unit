@@ -2,7 +2,6 @@
 set(SOURCES
   log.cpp
   error.cpp
-  layer.cpp
 )
 
 set(DIR_SRCS)
@@ -16,6 +15,7 @@ set(PU_SRCS ${PU_SRCS} ${DIR_SRCS})
 set(DIRS
 	protos
   util
+  nn
 )
 
 foreach(dir ${DIRS})

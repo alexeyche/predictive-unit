@@ -1,6 +1,7 @@
 #pragma once
 
 #include <predictive-unit/base.h>
+#include <predictive-unit/log.h>
 
 namespace NPredUnit {
 
@@ -31,7 +32,7 @@ namespace NPredUnit {
 
 		void Tick(TMatrix<BatchSize, InputSize*FilterSize> input) {
 			TMatrix<BatchSize, LayerSize> feedback = Activation * Fc;
-
+			if (feedback.mean() > 100.0) L_INFO << "blah";
 		}
 
 	private:

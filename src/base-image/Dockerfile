@@ -30,7 +30,9 @@ RUN apt-get install -y \
 	vim \
 	sudo \
 	python \
-	python-pip
+	python-pip \ 
+	telnet \
+	netcat
 
 RUN pip install protobuf
 

@@ -1,6 +1,8 @@
 SET(SOURCES
-  layer-config.proto
-  messages.proto
+ 	
+ 	base.proto
+  	layer-config.proto
+ 	messages.proto
 )
 
 

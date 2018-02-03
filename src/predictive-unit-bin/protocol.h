@@ -3,6 +3,7 @@
 #include "defaults.h"
 
 #include <predictive-unit/base.h>
+#include <predictive-unit/protos/messages.pb.h>
 
 #include <Poco/Net/StreamSocket.h>
 
@@ -16,7 +17,7 @@ namespace NPbIO = google::protobuf::io;
 
 namespace NPredUnit {
 
-	// using TMap<NPredUnitPb::MessageType, std::function<void(const NPb::message&)>>;
+	// using TMap<NPredUnitPb::MessageType, std::function<void(const NPb::Message&)>>;
 
 	struct THeader {
 		NPb::uint32 MessageType;
@@ -24,27 +25,14 @@ namespace NPredUnit {
 	};
 
 
-	THeader ReadMessageHeaderFromSocket(Poco::Net::StreamSocket& sck);
 
 	THeader ReadMessageHeaderFromStream(std::istream& in);
 
-	template <typename T>
-	void ReadProtobufMessageFromSocket(Poco::Net::StreamSocket& sck, ui32 messageSize, T* dstMessage) {
-		char* messageBytes = new char[messageSize];
-		
-		ui32 totalReceived = 0;
-		while (totalReceived < messageSize) {
-			totalReceived += sck.receiveBytes(messageBytes + totalReceived, TDefaults::ServerSocketBuffSize);
-		}
+	THeader ReadMessageHeaderFromSocket(Poco::Net::StreamSocket& sck);
 
-		NPb::io::ArrayInputStream ais(messageBytes, messageSize);
-		NPbIO::CodedInputStream codedInput(&ais);
+	void ReadProtobufMessageFromSocket(Poco::Net::StreamSocket& sck, ui32 messageSize, NPb::Message* dstMessage);
 
-		bool readSuccess = dstMessage->ParseFromCodedStream(&codedInput);
-		delete[] messageBytes;
-		ENSURE(readSuccess, "Failed to read protobuf");
-	}
-
+	void WriteHeaderAndProtobufMessageToSocket(const NPb::Message& src, NPredUnitPb::TMessageType::EMessageType messageType, Poco::Net::StreamSocket* sck);
 
 	void ReadProtobufMessage(std::istream& in);
 

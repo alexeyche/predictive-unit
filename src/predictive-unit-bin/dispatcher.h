@@ -12,6 +12,7 @@
 #include <predictive-unit/base.h>
 #include <predictive-unit/log.h>
 #include <predictive-unit/protos/messages.pb.h>
+#include <predictive-unit/util/string.h>
 
 #include <Poco/Net/TCPServer.h>
 #include <Poco/Net/TCPServerConnection.h>
@@ -25,6 +26,8 @@
 
 namespace NPredUnit {
 
+	using namespace NStr;
+
 	class TDispatcherConnection: public  Poco::Net::TCPServerConnection {
 	public:
 		TDispatcherConnection(const Poco::Net::StreamSocket& s, TSimulator& sim)
@@ -35,6 +38,7 @@ namespace NPredUnit {
 		
 		void run() {
 			Poco::Net::StreamSocket& sck = socket();
+			NPredUnitPb::TServerResponse response;
 			try {
 				L_INFO << "Got connection from " << sck.peerAddress().toString();		
 
@@ -43,24 +47,58 @@ namespace NPredUnit {
 
 				switch (header.MessageType) {
 					case NPredUnitPb::TMessageType::START_SIM:
-						
-						NPredUnitPb::TStartSim startSimMessage;
-						ReadProtobufMessageFromSocket(sck, header.MessageSize, &startSimMessage);
+						{
+							NPredUnitPb::TStartSim startSimMessage;
+							ReadProtobufMessageFromSocket(sck, header.MessageSize, &startSimMessage);
 
-		  				L_INFO << "Got message" << startSimMessage.simulationtime() << " - " << startSimMessage.DebugString();
-		  			
-						// start sim
-						Sim.StartSimulation(startSimMessage);
+			  				L_INFO << "Got message " << startSimMessage.simulationtime() << " - " << startSimMessage.DebugString();
+			  			
+							// start sim
+							if (Sim.StartSimulationAsync(startSimMessage)) {
+								response.set_responsetype(NPredUnitPb::TServerResponse::OK);
+							} else {
+								response.set_responsetype(NPredUnitPb::TServerResponse::BUSY);
+								response.set_message("Simulation is busy");
+							}	
+						}
+						break;
+					case NPredUnitPb::TMessageType::INPUT_DATA:
+						{
+							if (Sim.IsSumulationRunning()) {
+							
+								response.set_responsetype(NPredUnitPb::TServerResponse::OK);
+							} else {
+								response.set_responsetype(NPredUnitPb::TServerResponse::SIM_NOT_RUN);
+								response.set_message("Simulation is not running");	
+							}	
+						}
+						break;
+					case NPredUnitPb::TMessageType::SERVER_RESPONSE:
+						{
+							response.set_responsetype(NPredUnitPb::TServerResponse::ERROR);
+							response.set_message("Server to server comms");
+						}
 						break;
 				} 
 
 			} catch (Poco::Exception& err) {
 				L_ERROR << "Got POCO error: " << err.message();
+				response.set_responsetype(NPredUnitPb::TServerResponse::ERROR);
+				response.set_message(TStringBuilder() << "POCO error: " << err.message());
 			} catch (TErrException& err) {
 				L_ERROR << "Got error: " << err.what();
+				response.set_responsetype(NPredUnitPb::TServerResponse::ERROR);
+				response.set_message(TStringBuilder() << "Error: " << err.what());
 			}
-
+			
+			WriteHeaderAndProtobufMessageToSocket(
+				response, 
+				NPredUnitPb::TMessageType::SERVER_RESPONSE, 
+				&sck
+			);
 		}
+
+	
 	private:
 	
 		TSimulator& Sim;
@@ -86,10 +124,10 @@ namespace NPredUnit {
 
 	class TDispatcher {
 	public:
-		TDispatcher(ui32 port)
+		TDispatcher(TSimulator& sim, ui32 port)
 			: Port(port)
 			, Socket(Port)
-			, Server(new TDispatcherConnectionFactory(Sim), Socket)
+			, Server(new TDispatcherConnectionFactory(sim), Socket)
 
 		{
 		}
@@ -105,8 +143,6 @@ namespace NPredUnit {
 		}
 
 	private:
-		TSimulator Sim;
-	
 		ui32 Port;
 		Poco::Net::ServerSocket Socket;
 		Poco::Net::TCPServer Server;

@@ -12,6 +12,7 @@
 #include <complex>
 #include <set>
 #include <map>
+#include <thread>
 
 #include <Eigen/Dense>
 
@@ -128,5 +129,6 @@ namespace NPredUnit {
 	template <ui32 rows, ui32 cols>
 	using TMatrix = Eigen::Matrix<float, rows, cols>;
 	
-
+	using TThread = std::thread;
+			
 } // namespace NPredUnit

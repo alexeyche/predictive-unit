@@ -8,8 +8,6 @@
 
 
 #include <predictive-unit/log.h>
-#include <predictive-unit/protos/layer-config.pb.h>
-#include <predictive-unit/layer.h>
 #include <predictive-unit/util/maybe.h>
 #include <predictive-unit/util/argument.h>
 #include <predictive-unit/util/string.h>
@@ -36,8 +34,9 @@ int server(const TVector<TString>& argsVec) {
 		args.GenerateHelp(std::cout);
 		return 1;
 	}
-
-	TDispatcher dispatcher(port);
+	
+	TSimulator sim;
+	TDispatcher dispatcher(sim, port);
 
 	dispatcher.Run();
 

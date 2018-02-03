@@ -72,4 +72,4 @@ add_subdirectory(predictive-unit)
 add_subdirectory(predictive-unit-bin)
 add_subdirectory(predictive-unit-test)
 
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/python/generate-message.py ${CMAKE_BINARY_DIR}/bin/generate-message.py COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/python/cli.py ${CMAKE_BINARY_DIR}/bin/cli.py COPYONLY)

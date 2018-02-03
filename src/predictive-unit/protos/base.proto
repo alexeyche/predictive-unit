@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package NPredUnitPb;
+
+message TMatrixRow {
+	repeated float Data = 1;
+}
+
+message TMatrix {
+	repeated TMatrixRow Matrix = 1;
+}

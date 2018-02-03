@@ -2,10 +2,13 @@ syntax = "proto3";
 
 package NPredUnitPb;
 
+import "base.proto";
 
 message TMessageType {
 	enum EMessageType {
 		START_SIM = 0;
+		INPUT_DATA = 1;
+		SERVER_RESPONSE = 2;
 	}
 
 	EMessageType MessageType = 1;
@@ -16,3 +19,19 @@ message TStartSim {
 	uint32 SimulationTime = 1;		
 }
 
+
+message TInputData {
+	TMatrix Data = 1;
+}
+
+message TServerResponse {
+	enum EResponseType {
+		OK = 0;
+		SIM_NOT_RUN = 1;
+		BUSY = 2;
+		ERROR = 3;
+	}
+
+	EResponseType ResponseType = 1;
+	string Message = 2;
+}

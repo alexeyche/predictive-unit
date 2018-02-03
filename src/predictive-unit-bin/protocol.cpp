@@ -14,6 +14,10 @@ namespace NPredUnit {
 			ENSURE(readSuccess, "Failed to read message header");
 		}
 
+		void WriteHeaderToCoded(const THeader& header, NPbIO::CodedOutputStream* codedOutput) {
+			codedOutput->WriteLittleEndian32(header.MessageType);
+			codedOutput->WriteLittleEndian32(header.MessageSize);
+		}
 	}
 
 	THeader ReadMessageHeaderFromSocket(Poco::Net::StreamSocket& sck) {
@@ -30,6 +34,45 @@ namespace NPredUnit {
 		THeader header;
 		ReadHeaderFromCoded(codedInput, &header);
 		return header;
+	}
+
+	void ReadProtobufMessageFromSocket(Poco::Net::StreamSocket& sck, ui32 messageSize, NPb::Message* dstMessage) {
+		char* messageBytes = new char[messageSize];
+		
+		ui32 totalReceived = 0;
+		while (totalReceived < messageSize) {
+			totalReceived += sck.receiveBytes(messageBytes + totalReceived, TDefaults::ServerSocketBuffSize);
+		}
+
+		NPb::io::ArrayInputStream ais(messageBytes, messageSize);
+		NPbIO::CodedInputStream codedInput(&ais);
+
+		bool readSuccess = dstMessage->ParseFromCodedStream(&codedInput);
+		delete[] messageBytes;
+		ENSURE(readSuccess, "Failed to read protobuf");
+	}
+
+	void WriteHeaderAndProtobufMessageToSocket(const NPb::Message& src, NPredUnitPb::TMessageType::EMessageType messageType, Poco::Net::StreamSocket* sck) {
+		THeader header;
+		header.MessageSize = src.ByteSize();
+		header.MessageType = messageType;
+
+		ui32 bytesToSend = sizeof(THeader) + header.MessageSize;
+		char* buf = new char[bytesToSend];
+		
+		{
+			NPb::io::ArrayOutputStream aos(buf, bytesToSend);
+			NPbIO::CodedOutputStream codedOutput(&aos);
+
+			WriteHeaderToCoded(header, &codedOutput);
+			src.SerializeToCodedStream(&codedOutput);
+		}
+
+		ui32 totatSent = 0;
+		while (totatSent < bytesToSend) {
+			int nSent = sck->sendBytes(buf, bytesToSend);
+			totatSent += nSent;
+		}
 	}
 
 	void ReadProtobufMessage(std::istream& in) {

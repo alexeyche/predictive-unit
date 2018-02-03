@@ -1,10 +1,5 @@
 set(SOURCES
-	tuple.cpp
-    argument.cpp
-    optional.cpp
-    maybe.cpp
-    string.cpp
-    proto-struct.cpp
+    layer.cpp
 )
 
 set(DIR_SRCS)
