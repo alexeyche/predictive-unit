@@ -2,6 +2,7 @@
 
 #include <predictive-unit/base.h>
 #include <predictive-unit/log.h>
+#include <predictive-unit/nn/layer-config.h>
 
 namespace NPredUnit {
 
@@ -21,8 +22,9 @@ namespace NPredUnit {
 	template <ui32 BatchSize, ui32 LayerSize, ui32 InputSize, ui32 FilterSize>
 	class TLayer {
 	public:
-		TLayer()
-			: Membrane(TMatrix<BatchSize, LayerSize>::Zero())
+		TLayer(TLayerConfig config)
+			: C(config)
+			, Membrane(TMatrix<BatchSize, LayerSize>::Zero())
 			, Activation(TMatrix<BatchSize, LayerSize>::Zero())
  		{			
 			F = unitScalingInit<FilterSize * InputSize, LayerSize>();
@@ -30,14 +32,14 @@ namespace NPredUnit {
 			Fc = F.transpose() * F - TMatrix<LayerSize, LayerSize>::Identity();
 		}
 
-		void Tick(TMatrix<BatchSize, InputSize*FilterSize> input) {
+		void Tick(const TMatrix<BatchSize, InputSize*FilterSize> input) {
 			TMatrix<BatchSize, LayerSize> feedback = Activation * Fc;
-			if (feedback.mean() > 100.0) L_INFO << "blah";
+			Membrane +=  (input * F - feedback) / C.Tau;
 		}
 
 	private:
-		double Tau;
-		double Lambda;
+		TLayerConfig C;
+
 
 	public:
 		TMatrix<BatchSize, LayerSize> Membrane;

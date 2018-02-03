@@ -1,5 +1,7 @@
 #pragma once
 
+#include "protocol.h"
+
 #include <predictive-unit/protos/messages.pb.h>
 #include <predictive-unit/nn/layer.h>
 #include <predictive-unit/util/proto-struct.h>
@@ -9,21 +11,17 @@
 
 namespace NPredUnit {
 
-	struct TStartSim: public TProtoStructure<NPredUnitPb::TStartSim> {
-		TStartSim(const NPredUnitPb::TStartSim& m) {
-			FillFromProto(m, 1, &SimulationTime);			
-		}
-
-		ui32 SimulationTime;
-	};
-
 	class TSimulator {
 	public:
 		static constexpr ui32 BatchSize = 4;
 		static constexpr ui32 InputSize = 2;
-		static constexpr ui32 FilterSize = 2;
+		static constexpr ui32 FilterSize = 1;
 		static constexpr ui32 LayerSize = 10;
 		static constexpr ui32 BufferSize = 20;
+
+		TSimulator() {
+			InputBuffLock.clear();
+		}
 
 		~TSimulator() {
 			if (SimThread) {
@@ -32,7 +30,7 @@ namespace NPredUnit {
 			}
 		}
 
-		bool StartSimulationAsync(const NPredUnitPb::TStartSim& startSim) {
+		bool StartSimulationAsync(const TStartSim& startSim) {
 			if (SimMutex.try_lock()) {
 				if (SimThread) {
 					SimThread->join();
@@ -56,40 +54,54 @@ namespace NPredUnit {
 			}
 		}
 
-		static void StartSimulationImpl(TSimulator& sim, NPredUnitPb::TStartSim startSimProto) {
+		void IngestData(const TMatrixD& data) {
+			ENSURE(BatchSize == data.rows(), "Wrong batch size"); 
+			
+			while (InputBuffLock.test_and_set(std::memory_order_acquire)) {}
+			for (ui32 t=0; t<ToUi32(data.cols()); ++t) {
+				InputBuff.block<BatchSize, InputSize*FilterSize>(0, t) = data;	
+			}
+			
+			L_INFO << InputBuff.rows() << "x" << InputBuff.cols();
+			L_INFO << InputBuff;
+			InputBuffLock.clear(std::memory_order_release);
+		}
+
+		static void StartSimulationImpl(TSimulator& sim, TStartSim startSim) {
 			TGuard lock(sim.SimMutex, std::adopt_lock);
 
-			TStartSim startSim(startSimProto);
-
-			L_INFO << "Got " << startSim.SimulationTime;
+			L_INFO << "Starting simulation till " << startSim.SimulationTime;
 			
-			TLayer<BatchSize, LayerSize, InputSize, FilterSize> layer;
+			TLayer<BatchSize, LayerSize, InputSize, FilterSize> layer(startSim.LayerConfig);
 
 			ui32 inputIter = 0;
 			ui32 nCycle = 0;
-			while (true) {
+			
+			i32 nSimTime = 0;
+			bool endLess = startSim.SimulationTime < 0;
+			while (endLess || (nSimTime < startSim.SimulationTime)) {
 				if (inputIter >= sim.InputBuff.cols() - FilterSize) {
-					L_INFO << "Cycle " << nCycle;
 					inputIter = 0;
 					++nCycle;
-					break;
 				}
-
+				
+				while (sim.InputBuffLock.test_and_set(std::memory_order_acquire)) {}
 				auto input = sim.InputBuff.block<BatchSize, InputSize*FilterSize>(0, inputIter);
+				sim.InputBuffLock.clear(std::memory_order_release);
 
 				layer.Tick(input);
 
-				L_INFO << input;
-
 				inputIter += InputSize;
-			}
-			std::this_thread::sleep_for(std::chrono::seconds(10));  			
 
+				++nSimTime;
+			}
+			
   			L_INFO << "Simulation is done";
 		}
 
 		TOptional<TThread> SimThread;
 		TMutex SimMutex;
 		TMatrix<BatchSize, InputSize*BufferSize> InputBuff;
+		std::atomic_flag InputBuffLock;
 	};
 }

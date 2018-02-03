@@ -48,24 +48,22 @@ namespace NPredUnit {
 				switch (header.MessageType) {
 					case NPredUnitPb::TMessageType::START_SIM:
 						{
-							NPredUnitPb::TStartSim startSimMessage;
-							ReadProtobufMessageFromSocket(sck, header.MessageSize, &startSimMessage);
-
-			  				L_INFO << "Got message " << startSimMessage.simulationtime() << " - " << startSimMessage.DebugString();
+							TStartSim startSim = ReadProtobufMessageFromSocket<TStartSim>(sck, header.MessageSize);
 			  			
-							// start sim
-							if (Sim.StartSimulationAsync(startSimMessage)) {
+							if (Sim.StartSimulationAsync(startSim)) {
 								response.set_responsetype(NPredUnitPb::TServerResponse::OK);
 							} else {
 								response.set_responsetype(NPredUnitPb::TServerResponse::BUSY);
 								response.set_message("Simulation is busy");
-							}	
+							}
 						}
 						break;
 					case NPredUnitPb::TMessageType::INPUT_DATA:
 						{
 							if (Sim.IsSumulationRunning()) {
-							
+								TInputData inp = ReadProtobufMessageFromSocket<TInputData>(sck, header.MessageSize);
+								L_INFO << "Got input data " << inp.Data.rows() << "x" << inp.Data.cols() << ", ingesting ...";
+								Sim.IngestData(inp.Data);
 								response.set_responsetype(NPredUnitPb::TServerResponse::OK);
 							} else {
 								response.set_responsetype(NPredUnitPb::TServerResponse::SIM_NOT_RUN);

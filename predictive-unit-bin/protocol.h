@@ -3,7 +3,10 @@
 #include "defaults.h"
 
 #include <predictive-unit/base.h>
+#include <predictive-unit/log.h>
 #include <predictive-unit/protos/messages.pb.h>
+#include <predictive-unit/util/proto-struct.h>
+#include <predictive-unit/nn/layer-config.h>
 
 #include <Poco/Net/StreamSocket.h>
 
@@ -32,8 +35,37 @@ namespace NPredUnit {
 
 	void ReadProtobufMessageFromSocket(Poco::Net::StreamSocket& sck, ui32 messageSize, NPb::Message* dstMessage);
 
+	template <typename TProtoStruct>
+	TProtoStruct ReadProtobufMessageFromSocket(Poco::Net::StreamSocket& sck, ui32 messageSize) {
+		typename TProtoStruct::TTemplateProto dstProto;
+		ReadProtobufMessageFromSocket(sck, messageSize, &dstProto);
+		return TProtoStruct(dstProto);
+	}
+
+
 	void WriteHeaderAndProtobufMessageToSocket(const NPb::Message& src, NPredUnitPb::TMessageType::EMessageType messageType, Poco::Net::StreamSocket* sck);
 
 	void ReadProtobufMessage(std::istream& in);
+
+	
+	struct TStartSim: public TProtoStructure<NPredUnitPb::TStartSim> {
+		TStartSim(const NPredUnitPb::TStartSim& m)
+			: LayerConfig(m.layerconfig()) 
+		{
+			FillFromProto(m, NPredUnitPb::TStartSim::kSimulationTimeFieldNumber, &SimulationTime);
+		}
+
+		i32 SimulationTime;
+		TLayerConfig LayerConfig;
+	};
+
+
+	struct TInputData: TProtoStructure<NPredUnitPb::TInputData> {
+		TInputData(const NPredUnitPb::TInputData& m) {
+			FillFromProto(m, NPredUnitPb::TInputData::kDataFieldNumber, &Data);
+		}
+
+		TMatrixD Data;
+	};
 
 }

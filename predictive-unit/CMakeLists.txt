@@ -2,6 +2,7 @@
 set(SOURCES
   log.cpp
   error.cpp
+  base.cpp
 )
 
 set(DIR_SRCS)

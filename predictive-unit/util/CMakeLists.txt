@@ -5,6 +5,7 @@ set(SOURCES
     maybe.cpp
     string.cpp
     proto-struct.cpp
+    matrix.cpp
 )
 
 set(DIR_SRCS)

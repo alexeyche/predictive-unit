@@ -2,7 +2,8 @@ syntax = "proto3";
 
 package NPredUnitPb;
 
-import "base.proto";
+import "matrix.proto";
+import "layer-config.proto";
 
 message TMessageType {
 	enum EMessageType {
@@ -16,7 +17,8 @@ message TMessageType {
 
 
 message TStartSim {
-	uint32 SimulationTime = 1;		
+	TLayerConfig LayerConfig = 1;
+	int32 SimulationTime = 2;
 }
 
 

@@ -43,6 +43,7 @@ namespace NPredUnit {
     using TVector = std::vector<T>;
 
     using ui32 = size_t;
+	using i32 = int;
 
     //template< class... Types>
     //using Tie = std::tie<Types& ...>;
@@ -126,9 +127,14 @@ namespace NPredUnit {
 	template <typename K, typename V>
 	using TMap = std::map<K, V>;
 
-	template <ui32 rows, ui32 cols>
+	template <int rows, int cols>
 	using TMatrix = Eigen::Matrix<float, rows, cols>;
+
+	
+	using TMatrixD = TMatrix<Eigen::Dynamic, Eigen::Dynamic>;
 	
 	using TThread = std::thread;
 			
+	ui32 ToUi32(int v);
+
 } // namespace NPredUnit

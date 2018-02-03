@@ -1,6 +1,6 @@
 SET(SOURCES
  	
- 	base.proto
+ 	matrix.proto
   	layer-config.proto
  	messages.proto
 )

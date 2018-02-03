@@ -32,9 +32,10 @@ RUN apt-get install -y \
 	python \
 	python-pip \ 
 	telnet \
-	netcat
+	netcat \
+	htop
 
-RUN pip install protobuf
+RUN pip install protobuf numpy
 
 RUN mkdir eigen && tar -xf eigen.tar.bz2 -C eigen; \
     cd eigen; \

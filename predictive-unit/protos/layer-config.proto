@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package NPredUnitPb;
+
+message TLayerConfig {
+    double Tau = 1;
+	double TauMean = 2;
+	double AdaptGain = 3;
+	double LearningRate = 4;
+}
+
