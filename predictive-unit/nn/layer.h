@@ -13,7 +13,7 @@ namespace NPredUnit {
 		return 2.0 * initSpan * (m.array() + 1.0) / 2.0 - initSpan;
 	}
 
-	template <ui32 Rows, ui32 Cols>
+	template <int Rows, int Cols>
 	TMatrix<Rows, Cols> relu(TMatrix<Rows, Cols> x) {
 		return x.cwiseMax(0.0);
 	}
@@ -22,19 +22,25 @@ namespace NPredUnit {
 	template <ui32 BatchSize, ui32 LayerSize, ui32 InputSize, ui32 FilterSize>
 	class TLayer {
 	public:
+
 		TLayer(TLayerConfig config)
 			: C(config)
-			, Membrane(TMatrix<BatchSize, LayerSize>::Zero())
-			, Activation(TMatrix<BatchSize, LayerSize>::Zero())
- 		{			
+ 		{
+ 			Activation = TMatrix<BatchSize, LayerSize>::Zero();
+ 			Membrane = TMatrix<BatchSize, LayerSize>::Zero();
+
 			F = unitScalingInit<FilterSize * InputSize, LayerSize>();
 			F = (F.array().rowwise())/(F.colwise().norm().array());
 			Fc = F.transpose() * F - TMatrix<LayerSize, LayerSize>::Identity();
 		}
 
 		void Tick(const TMatrix<BatchSize, InputSize*FilterSize> input) {
-			TMatrix<BatchSize, LayerSize> feedback = Activation * Fc;
-			Membrane +=  (input * F - feedback) / C.Tau;
+			TMatrix<BatchSize, InputSize*FilterSize> input_hat = Activation * F.transpose();
+			TMatrix<BatchSize, InputSize*FilterSize> e = input - input_hat;
+
+			Membrane += (e * F - Membrane) / C.Tau;
+
+			Activation = relu(Membrane);
 		}
 
 	private:

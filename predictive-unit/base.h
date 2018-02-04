@@ -19,10 +19,10 @@
 namespace NPredUnit {
 
 	template <typename T>
-	using UPtr = std::unique_ptr<T>;
+	using TUniquePtr = std::unique_ptr<T>;
 
 	template <typename T>
-	using SPtr = std::shared_ptr<T>;
+	using TSharedPtr = std::shared_ptr<T>;
 
 
 	template <typename X, typename Y>
@@ -44,7 +44,8 @@ namespace NPredUnit {
 
     using ui32 = size_t;
 	using i32 = int;
-
+	using ui64 = unsigned long;
+	
     //template< class... Types>
     //using Tie = std::tie<Types& ...>;
 
@@ -77,8 +78,8 @@ namespace NPredUnit {
 	}
 
 	template <typename T>
-	SPtr<T> MakeShared(T *ptr) {
-		return SPtr<T>(ptr);
+	TSharedPtr<T> MakeShared(T *ptr) {
+		return TSharedPtr<T>(ptr);
 	}
 
 	using TOutputStream = std::ostream;
@@ -136,5 +137,12 @@ namespace NPredUnit {
 	using TThread = std::thread;
 			
 	ui32 ToUi32(int v);
+
+	using TAtomicFlag = std::atomic_flag;
+
+	void RunLock(TAtomicFlag& atomicFlag, std::function<void()> cb);
+
+	template <typename K, typename V>
+	using TMultiMap = std::multimap<K, V>;
 
 } // namespace NPredUnit

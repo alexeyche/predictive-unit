@@ -27,10 +27,20 @@ namespace NPredUnit {
 	        Descr = message.GetDescriptor();
 		}
 
+		bool HasField(const NPb::FieldDescriptor* fd, const TProto& m) const {
+			if (fd->is_repeated()) {
+            	return Refl->FieldSize(m, fd) > 0;
+        	}
+        	return Refl->HasField(m, fd);
+		}
+
 		template <typename T>
 		void FillFromProto(const TProto& m, ui32 fieldNumber, T* dst) {
 			const auto* fd = Descr->FindFieldByNumber(fieldNumber);
-			FillField(m, fd, dst);
+			
+			if (HasField(fd, m)) {
+				FillField(m, fd, dst);
+			}
 		}
 		
 
@@ -46,6 +56,13 @@ namespace NPredUnit {
 			*dst = Refl->GetDouble(message, fd);
 		}
 
+		void FillField(const TProto& message, const NPb::FieldDescriptor* fd, bool* dst) {
+			*dst = Refl->GetBool(message, fd);
+		}
+
+		void FillField(const TProto& message, const NPb::FieldDescriptor* fd, TString* dst) {
+			*dst = Refl->GetString(message, fd);
+		}
 
 		void FillField(const TProto& message, const NPb::FieldDescriptor* fd, TMatrixD* dst) {
 			const NPredUnitPb::TMatrix& mat = dynamic_cast<const NPredUnitPb::TMatrix&>(Refl->GetMessage(message, fd));

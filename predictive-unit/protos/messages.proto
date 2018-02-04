@@ -10,6 +10,7 @@ message TMessageType {
 		START_SIM = 0;
 		INPUT_DATA = 1;
 		SERVER_RESPONSE = 2;
+		STAT_REQUEST = 3;
 	}
 
 	EMessageType MessageType = 1;
@@ -18,12 +19,26 @@ message TMessageType {
 
 message TStartSim {
 	TLayerConfig LayerConfig = 1;
-	int32 SimulationTime = 2;
+	uint32 SimId = 2;
+	int32 SimulationTime = 3;
+	bool CollectStats = 4;
+	TInputData InputData = 5;
 }
 
+message TStatRequest {
+	uint32 SimId = 1;
+}
 
 message TInputData {
-	TMatrix Data = 1;
+	uint32 SimId = 1;
+	TMatrix Data = 2;
+}
+
+message TStats {
+	TMatrix Membrane = 1;
+	TMatrix Activation = 2;
+	TMatrix F = 3;
+	TMatrix Fc = 4;
 }
 
 message TServerResponse {
@@ -32,8 +47,12 @@ message TServerResponse {
 		SIM_NOT_RUN = 1;
 		BUSY = 2;
 		ERROR = 3;
+		STATS = 4;
 	}
 
 	EResponseType ResponseType = 1;
 	string Message = 2;
+	TStats Stats = 3;
 }
+
+

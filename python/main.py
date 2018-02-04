@@ -48,7 +48,7 @@ c.fb_factor = 1.0
 c.regularization = 0.0
 c.optimizer = Optimizer.SGD
 # c.optimizer = Optimizer.ADAM
-c.epochs = 1000
+c.epochs = 1
 
 # ds = MNISTDataset()
 ds = XorDataset()

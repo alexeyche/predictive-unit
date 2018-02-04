@@ -1,14 +1,15 @@
 #pragma once
 
 #include "simulator.h"
-#include "defaults.h"
-#include "protocol.h"
 
 #include <sys/socket.h>
 
 #include <iostream>
 #include <type_traits>
 
+
+#include <predictive-unit/defaults.h>
+#include <predictive-unit/protocol.h>
 #include <predictive-unit/base.h>
 #include <predictive-unit/log.h>
 #include <predictive-unit/protos/messages.pb.h>
@@ -28,9 +29,9 @@ namespace NPredUnit {
 
 	using namespace NStr;
 
-	class TDispatcherConnection: public  Poco::Net::TCPServerConnection {
+	class TMessageServerConnection: public  Poco::Net::TCPServerConnection {
 	public:
-		TDispatcherConnection(const Poco::Net::StreamSocket& s, TSimulator& sim)
+		TMessageServerConnection(const Poco::Net::StreamSocket& s, TSimulator& sim)
 			: Poco::Net::TCPServerConnection(s)
 			, Sim(sim)
 		{
@@ -60,14 +61,14 @@ namespace NPredUnit {
 						break;
 					case NPredUnitPb::TMessageType::INPUT_DATA:
 						{
-							if (Sim.IsSumulationRunning()) {
-								TInputData inp = ReadProtobufMessageFromSocket<TInputData>(sck, header.MessageSize);
+							TInputData inp = ReadProtobufMessageFromSocket<TInputData>(sck, header.MessageSize);
+							if (Sim.IsSumulationRunning(inp.SimId)) {
 								L_INFO << "Got input data " << inp.Data.rows() << "x" << inp.Data.cols() << ", ingesting ...";
-								Sim.IngestData(inp.Data);
+								Sim.IngestDataAsync(inp);
 								response.set_responsetype(NPredUnitPb::TServerResponse::OK);
 							} else {
 								response.set_responsetype(NPredUnitPb::TServerResponse::SIM_NOT_RUN);
-								response.set_message("Simulation is not running");	
+								response.set_message(TStringBuilder() << "Simulation " << inp.SimId << " is not running");	
 							}	
 						}
 						break;
@@ -75,6 +76,19 @@ namespace NPredUnit {
 						{
 							response.set_responsetype(NPredUnitPb::TServerResponse::ERROR);
 							response.set_message("Server to server comms");
+						}
+						break;
+					case NPredUnitPb::TMessageType::STAT_REQUEST:
+						{
+							TStatRequest sr = ReadProtobufMessageFromSocket<TStatRequest>(sck, header.MessageSize);
+							auto stats = Sim.GetStats(sr);
+							if (stats) {
+								response.mutable_stats()->CopyFrom(stats->ToProto());
+								response.set_responsetype(NPredUnitPb::TServerResponse::OK);
+							} else {
+								response.set_message("Simluation is busy (probably started to colect statistics)");
+								response.set_responsetype(NPredUnitPb::TServerResponse::BUSY);
+							}
 						}
 						break;
 				} 
@@ -103,29 +117,29 @@ namespace NPredUnit {
 	};
 
 
-	class TDispatcherConnectionFactory: public Poco::Net::TCPServerConnectionFactory
+	class TMessageServerConnectionFactory: public Poco::Net::TCPServerConnectionFactory
 	{
 	public:
-		TDispatcherConnectionFactory(TSimulator& sim)
+		TMessageServerConnectionFactory(TSimulator& sim)
 			: Sim(sim) 
 		{
 		}
 		
 		Poco::Net::TCPServerConnection* createConnection(const Poco::Net::StreamSocket& socket)
 		{
-			return new TDispatcherConnection(socket, Sim);
+			return new TMessageServerConnection(socket, Sim);
 		}
 	
 	private:
 		TSimulator& Sim;
 	};
 
-	class TDispatcher {
+	class TMessageServer {
 	public:
-		TDispatcher(TSimulator& sim, ui32 port)
+		TMessageServer(TSimulator& sim, ui32 port)
 			: Port(port)
 			, Socket(Port)
-			, Server(new TDispatcherConnectionFactory(sim), Socket)
+			, Server(new TMessageServerConnectionFactory(sim), Socket)
 
 		{
 		}

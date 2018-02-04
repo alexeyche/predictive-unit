@@ -45,27 +45,48 @@ namespace NPredUnit {
 
 	void WriteHeaderAndProtobufMessageToSocket(const NPb::Message& src, NPredUnitPb::TMessageType::EMessageType messageType, Poco::Net::StreamSocket* sck);
 
-	void ReadProtobufMessage(std::istream& in);
-
-	
-	struct TStartSim: public TProtoStructure<NPredUnitPb::TStartSim> {
-		TStartSim(const NPredUnitPb::TStartSim& m)
-			: LayerConfig(m.layerconfig()) 
-		{
-			FillFromProto(m, NPredUnitPb::TStartSim::kSimulationTimeFieldNumber, &SimulationTime);
-		}
-
-		i32 SimulationTime;
-		TLayerConfig LayerConfig;
-	};
+	void ReadProtobufMessage(std::istream& in, NPb::Message* dst);
 
 
 	struct TInputData: TProtoStructure<NPredUnitPb::TInputData> {
 		TInputData(const NPredUnitPb::TInputData& m) {
+			FillFromProto(m, NPredUnitPb::TInputData::kSimIdFieldNumber, &SimId);
 			FillFromProto(m, NPredUnitPb::TInputData::kDataFieldNumber, &Data);
 		}
 
+		ui32 SimId = 0;
 		TMatrixD Data;
+	};
+
+
+	struct TStartSim: public TProtoStructure<NPredUnitPb::TStartSim> {
+		static TStartSim DefaultConfig() {
+			return TStartSim(NPredUnitPb::TStartSim());	
+		}
+		
+		TStartSim(const NPredUnitPb::TStartSim& m)
+			: LayerConfig(m.layerconfig()) 
+			, InputData(m.inputdata())
+		{
+			FillFromProto(m, NPredUnitPb::TStartSim::kSimIdFieldNumber, &SimId);
+			FillFromProto(m, NPredUnitPb::TStartSim::kSimulationTimeFieldNumber, &SimulationTime);
+			FillFromProto(m, NPredUnitPb::TStartSim::kCollectStatsFieldNumber, &CollectStats);
+		}
+
+		TLayerConfig LayerConfig;
+		ui32 SimId = 0;
+		i32 SimulationTime = -1;
+		bool CollectStats = true;
+		TInputData InputData;
+	};
+
+
+	struct TStatRequest: TProtoStructure<NPredUnitPb::TStatRequest> {
+		TStatRequest(const NPredUnitPb::TStatRequest& m) {
+			FillFromProto(m, NPredUnitPb::TStatRequest::kSimIdFieldNumber, &SimId);
+		}
+		
+		ui32 SimId = 0;
 	};
 
 }

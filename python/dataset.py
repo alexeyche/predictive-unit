@@ -2,6 +2,13 @@
 import numpy as np
 from sklearn.datasets import make_classification
 import os
+from util import smooth_batch_matrix
+
+def to_sparse_ts(d, num_iters, at=10):
+    d_ts = np.zeros((num_iters,) + d.shape)
+    d_ts[at] = d.copy()
+    return smooth_batch_matrix(d_ts)
+
 
 def get_toy_sparse_data(dest_dim, size, n_classes=2, seed=2):
     x_values, y_values = make_classification(
@@ -258,3 +265,5 @@ class XorDataset(Dataset):
     @property
     def task_type(self):
         return TaskType.REGRESSION
+
+

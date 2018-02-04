@@ -7,5 +7,5 @@ message TMatrixRow {
 }
 
 message TMatrix {
-	repeated TMatrixRow Matrix = 1;
+	repeated TMatrixRow Row = 1;
 }

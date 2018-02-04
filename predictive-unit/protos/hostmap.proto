@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package NPredUnitPb;
+
+
+message TSimRecord {
+	uint32 Id = 1;
+}
+
+message THostRecord {
+	uint32 Id = 1;
+	string Host = 2;
+	repeated TSimRecord SimRecord = 3;
+}
+
+message TConnectionInstance {
+	uint32 Host = 1;
+	uint32 Sim = 2;
+}
+
+message TConnection {
+	TConnectionInstance From = 1;
+	TConnectionInstance To = 2;
+}
+
+message THostMap {
+	repeated THostRecord HostRecord = 1;
+	repeated TConnection Connection = 2;
+}

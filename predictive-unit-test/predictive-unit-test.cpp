@@ -1,70 +1,39 @@
 
-#include <predictive-unit/protos/messages.pb.h>
 #include <predictive-unit/base.h>
+#include <predictive-unit/util/ring-matrix-buffer.h>
 #include <predictive-unit/log.h>
 
 
-#include <google/protobuf/message.h>
-#include <google/protobuf/io/zero_copy_stream_impl.h>
-#include <google/protobuf/io/coded_stream.h>
-
-namespace NPb = google::protobuf;
-namespace NPbIO = google::protobuf::io;
-
 using namespace NPredUnit;
 
-void TestProtobuf() {
-	NPredUnitPb::TStartSim startSimMessage;
-	startSimMessage.set_simulationtime(10000000);
-
-	NPb::uint32 messageType = NPredUnitPb::TMessageType::START_SIM;
-	NPb::uint32 messageSize = startSimMessage.ByteSize();
-
-	ui32 bytesToSend = 4 + 4 + messageSize;
-	char* buf = new char[bytesToSend];
-
-	L_INFO << "Message size: " << messageSize << " " << 8;
-
-
-	{
-		NPb::io::ArrayOutputStream aos(buf, bytesToSend);
-		NPbIO::CodedOutputStream codedOutput(&aos);	
+void TestRingMatrixBuffer() {
+	constexpr int rows = 10;
+	constexpr int cols = 10;
+	constexpr ui32 bufferSize = 10;
 	
-		codedOutput.WriteVarint32(messageType);
-		codedOutput.WriteVarint32(messageSize);
-		bool succWrite = startSimMessage.SerializeToCodedStream(&codedOutput);
-		ENSURE(succWrite, "Failed to write");
+	TRingMatrixBuffer<rows, cols, bufferSize> RMBuff;
+
+	TVector<TMatrix<rows, cols>> data;
+	for (ui32 id=0; id < 20; ++id) {
+		data.push_back(TMatrix<rows, cols>::Random());
 	}
 
-	
-	L_INFO << startSimMessage.DebugString();
-
-	ui32 headerSize = sizeof(NPb::uint32) + sizeof(NPb::uint32);
-
-	NPredUnitPb::TStartSim startSimMessage2;
-	{
-		NPb::io::ArrayInputStream aisM(buf, headerSize + messageSize);
-		NPbIO::CodedInputStream codedInputM(&aisM);
-
-		bool succ0 = codedInputM.ReadVarint32(&messageType);
-		ENSURE(succ0, "Failed to read message type");
-		bool succ1 = codedInputM.ReadVarint32(&messageSize);
-		ENSURE(succ1, "Failed to read message size");
-
-		bool succ = startSimMessage2.ParseFromCodedStream(&codedInputM);
-		if (!succ) {
-			L_ERROR << "Failed to read protobuf";	
-		} else {
-			L_INFO << startSimMessage2.DebugString(); 
-		}
+	for (ui32 id=0; id < 15; ++id) {
+		RMBuff.Push(data[id]);
 	}
-	ENSURE(startSimMessage2.simulationtime() == startSimMessage.simulationtime(), "FAIL");
-	delete[] buf;
+
+	// for (ui32 id=0; id < 10; ++id) {
+	// 	double diff = (RMBuff.Pop() - data[id+5]).norm();
+	// 	ENSURE(diff == 0.0, "Test failed for id " << id);
+	// }
+
+	
+	
 }
 
 
 int main(int argc, char** argv) {
-	TestProtobuf();
+	TestRingMatrixBuffer();
 
 	return 0;
 }

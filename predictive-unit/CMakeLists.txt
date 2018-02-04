@@ -3,6 +3,8 @@ set(SOURCES
   log.cpp
   error.cpp
   base.cpp
+  defaults.cpp
+  protocol.cpp
 )
 
 set(DIR_SRCS)
@@ -17,6 +19,7 @@ set(DIRS
 	protos
   util
   nn
+  simulator
 )
 
 foreach(dir ${DIRS})

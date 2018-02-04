@@ -33,9 +33,16 @@ RUN apt-get install -y \
 	python-pip \ 
 	telnet \
 	netcat \
-	htop
+	htop \
+	python-tk
 
-RUN pip install protobuf numpy
+RUN pip install \
+	protobuf \
+	numpy \
+	tensorflow \
+	matplotlib \
+	scipy \
+	sklearn
 
 RUN mkdir eigen && tar -xf eigen.tar.bz2 -C eigen; \
     cd eigen; \

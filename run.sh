@@ -8,5 +8,7 @@ docker run \
    -p 8080:8080 \
    -v $PU_SRC:/predictive-unit-src \
    -v $HOME/.bash_aliases:/home/pu-user/.bash_aliases \
+   -e DISPLAY=$DISPLAY \
+   -v /tmp/.X11-unix:/tmp/.X11-unix \
    pu \
    /bin/bash

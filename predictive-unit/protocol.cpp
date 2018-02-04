@@ -75,7 +75,7 @@ namespace NPredUnit {
 		}
 	}
 
-	void ReadProtobufMessage(std::istream& in) {
+	void ReadProtobufMessage(std::istream& in, NPb::Message* dstMessage) {
         NPbIO::IstreamInputStream zeroIn(&in);
         NPbIO::CodedInputStream codedInput(&zeroIn);
 
@@ -83,15 +83,6 @@ namespace NPredUnit {
 		ReadHeaderFromCoded(codedInput, &header);
 
 		L_INFO << "Got message type " << header.MessageType << ", size " << header.MessageSize << "b";
-
-		switch (header.MessageType) {
-			case NPredUnitPb::TMessageType::START_SIM:
-						
-				NPredUnitPb::TStartSim startSimMessage;
-				startSimMessage.ParseFromCodedStream(&codedInput);
-		
-				L_INFO << startSimMessage.DebugString();
-				break;
-		}
+		dstMessage->ParseFromCodedStream(&codedInput);
 	}	
 }

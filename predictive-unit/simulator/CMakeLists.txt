@@ -1,13 +1,7 @@
 set(SOURCES
-	tuple.cpp
-    argument.cpp
-    optional.cpp
-    maybe.cpp
-    string.cpp
-    proto-struct.cpp
-    matrix.cpp
-    protobuf.cpp
-    ring-matrix-buffer.cpp
+	simulator.cpp
+    dispatcher.cpp
+    message-server.cpp
 )
 
 set(DIR_SRCS)

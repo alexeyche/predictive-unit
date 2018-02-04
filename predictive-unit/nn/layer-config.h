@@ -14,10 +14,10 @@ namespace NPredUnit {
 			FillFromProto(m, 4, &LearningRate);			
 		}
 
-		double Tau;
-		double TauMean;
-		double AdaptGain;
-		double LearningRate;
+		double Tau = 5.0;
+		double TauMean = 100.0;
+		double AdaptGain = 1.0;
+		double LearningRate = 0.1;
 	};
 
 }

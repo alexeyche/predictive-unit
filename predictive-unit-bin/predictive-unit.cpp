@@ -1,10 +1,14 @@
 
 #include <fstream>
 
-#include "dispatcher.h"
+#include <predictive-unit/defaults.h>
+#include <predictive-unit/simulator/message-server.h>
+#include <predictive-unit/simulator/dispatcher.h>
+#include <predictive-unit/simulator/simulator.h>
+#include <predictive-unit/util/protobuf.h>
+#include <predictive-unit/protos/hostmap.pb.h>
+
 #include "client.h"
-#include "defaults.h"
-#include "protocol.h"
 
 
 #include <predictive-unit/log.h>
@@ -19,10 +23,18 @@ using namespace NPredUnit::NStr;
 int server(const TVector<TString>& argsVec) {
 	ui32 port = TDefaults::ServerPort;
 	bool help = false;
+	TOptional<int> startSim;
+	ui32 jobsNum = 1;
+	TString startData;
+	TString hostMapFile;
 
 	auto args = ArgumentSet(
 		Argument("--port", "-p", port, "the port for TCPServer, default 8080"),
-		Argument("--help", "-h", help, "This option will print this menu", /*required*/ false, /*stopProcessingAfterMatch*/ true)
+		Argument("--jobs", "-j", jobsNum, "Maximum jobs number"),
+		Argument("--host-map", "-m", hostMapFile, "Host map schema"),
+		Argument("--help", "-h", help, "This option will print this menu", /*required*/ false, /*stopProcessingAfterMatch*/ true),
+		Argument("--start-sim", "-s", startSim, "This option will force server start simulation with pointed duration"),
+		Argument("--start-data", "-d", startData, "Points to file with TInputData")
 	);
 
 	if (!args.TryParse(argsVec)) {
@@ -34,11 +46,39 @@ int server(const TVector<TString>& argsVec) {
 		args.GenerateHelp(std::cout);
 		return 1;
 	}
-	
-	TSimulator sim;
-	TDispatcher dispatcher(sim, port);
 
-	dispatcher.Run();
+	// HostMap
+	ENSURE(!hostMapFile.empty(), "Host map must be pointed out as argument");
+	NPredUnitPb::THostMap hostMapPb;
+	ReadProtoTextFromFile(hostMapFile, &hostMapPb);
+
+	L_INFO << hostMapPb.DebugString();
+	
+	// Dispatcher
+	THostMap hostMap(hostMapPb);
+	TDispatcher dispatcher(hostMap);
+
+	// Simulator
+	NPredUnitPb::TStartSim defaultSimConfig;
+	TSimulator sim(jobsNum, dispatcher);
+	
+	{
+		if (!startData.empty()) {
+			std::ifstream ifile(startData);
+			ReadProtobufMessage(ifile, defaultSimConfig.mutable_inputdata());
+		}
+
+		if (startSim) {
+			TStartSim startSimConfig(defaultSimConfig);
+			startSimConfig.SimulationTime = *startSim;
+			sim.StartSimulationAsync(startSimConfig);
+		}
+	}
+
+	// Message server
+	TMessageServer server(sim, port);
+
+	server.Run();
 
 	return 0;
 }
@@ -68,16 +108,16 @@ int client(const TVector<TString>& argsVec) {
 	}
 	
 
-	if (protobufSourceToRead.empty()) {
-		ReadProtobufMessage(std::cin);
-	} else {
-		std::ifstream ifile(protobufSourceToRead);
-		ENSURE(ifile, "Failed to open file: " << protobufSourceToRead);
-		ReadProtobufMessage(ifile);
-	}
+	// if (protobufSourceToRead.empty()) {
+	// 	ReadProtobufMessage(std::cin);
+	// } else {
+	// 	std::ifstream ifile(protobufSourceToRead);
+	// 	ENSURE(ifile, "Failed to open file: " << protobufSourceToRead);
+	// 	ReadProtobufMessage(ifile);
+	// }
 
-	TClient cli(server, port);
-	cli.SendData();
+	// TClient cli(server, port);
+	// cli.SendData();
 
 	return 0;
 }

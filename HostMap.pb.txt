@@ -1,0 +1,11 @@
+HostRecord {
+	Id: 0
+	Host: "127.0.0.1"
+	SimRecord {Id: 0}
+	SimRecord {Id: 1}
+}
+
+Connection {
+	From {Host: 0 Sim: 0}	
+	To {Host: 0 Sim: 1}
+}
