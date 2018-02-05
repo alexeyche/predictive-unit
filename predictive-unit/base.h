@@ -14,6 +14,8 @@
 #include <map>
 #include <thread>
 
+#include <predictive-unit/contrib/rwq/readerwriterqueue.h>
+
 #include <Eigen/Dense>
 
 namespace NPredUnit {
@@ -144,5 +146,10 @@ namespace NPredUnit {
 
 	template <typename K, typename V>
 	using TMultiMap = std::multimap<K, V>;
+
+	template <typename T, size_t MAX_BLOCK_SIZE = 512>
+	using TReaderWriterQueue = moodycamel::ReaderWriterQueue<T, MAX_BLOCK_SIZE>;
+
+	using TMatrixRWQ = TReaderWriterQueue<TMatrixD>;
 
 } // namespace NPredUnit

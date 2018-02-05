@@ -63,10 +63,11 @@ namespace NPredUnit {
 						{
 							TInputData inp = ReadProtobufMessageFromSocket<TInputData>(sck, header.MessageSize);
 							if (Sim.IsSumulationRunning(inp.SimId)) {
-								L_INFO << "Got input data " << inp.Data.rows() << "x" << inp.Data.cols() << ", ingesting ...";
+								L_INFO << "Got input data for sim #" << inp.SimId << ", " << inp.Data.rows() << "x" << inp.Data.cols() << ", ingesting ...";
 								Sim.IngestDataAsync(inp);
 								response.set_responsetype(NPredUnitPb::TServerResponse::OK);
 							} else {
+								L_INFO << "Sim #" << inp.SimId << " is not running; no data ingest";
 								response.set_responsetype(NPredUnitPb::TServerResponse::SIM_NOT_RUN);
 								response.set_message(TStringBuilder() << "Simulation " << inp.SimId << " is not running");	
 							}	
@@ -143,9 +144,19 @@ namespace NPredUnit {
 
 		{
 		}
+
+		void RunAsync() {
+			L_INFO << "Starting server in async mode";
+			Server.start();
+		}
+
+		void Stop() {
+			L_INFO << "Stopping server";
+			Server.stop();
+		}
 		
 		void Run() {
-			Server.start();
+			Server.start();	
 	
 			L_INFO << "Listening port " << Port;
 			Terminate.wait();
@@ -153,6 +164,8 @@ namespace NPredUnit {
 			L_INFO << "Got terminate signal, going down";
 			Server.stop();
 		}
+
+
 
 	private:
 		ui32 Port;

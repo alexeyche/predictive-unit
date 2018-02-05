@@ -1,39 +1,64 @@
 
 #include <predictive-unit/base.h>
-#include <predictive-unit/util/ring-matrix-buffer.h>
+#include <predictive-unit/simulator/dispatcher.h>
+#include <predictive-unit/simulator/message-server.h>
+#include <predictive-unit/simulator/simulator.h>
 #include <predictive-unit/log.h>
 
 
 using namespace NPredUnit;
 
-void TestRingMatrixBuffer() {
-	constexpr int rows = 10;
-	constexpr int cols = 10;
-	constexpr ui32 bufferSize = 10;
-	
-	TRingMatrixBuffer<rows, cols, bufferSize> RMBuff;
 
-	TVector<TMatrix<rows, cols>> data;
-	for (ui32 id=0; id < 20; ++id) {
-		data.push_back(TMatrix<rows, cols>::Random());
+void TestBaseTalk() {
+	ui32 jobsNum = 2;
+
+	NPredUnitPb::THostMap hostMapPb;
+
+	{
+		auto* hr = hostMapPb.add_hostrecord();
+		hr->set_id(0);
+		hr->set_host("127.0.0.1");
+		hr->add_simrecord()->set_id(0);
+		hr->add_simrecord()->set_id(1);
+		
+		auto* conn = hostMapPb.add_connection();
+		conn->mutable_from()->set_host(0);
+		conn->mutable_from()->set_sim(0);
+		conn->mutable_to()->set_host(0);
+		conn->mutable_to()->set_sim(1);
 	}
 
-	for (ui32 id=0; id < 15; ++id) {
-		RMBuff.Push(data[id]);
-	}
+	THostMap hostMap(hostMapPb);
 
-	// for (ui32 id=0; id < 10; ++id) {
-	// 	double diff = (RMBuff.Pop() - data[id+5]).norm();
-	// 	ENSURE(diff == 0.0, "Test failed for id " << id);
-	// }
 
-	
-	
+	TDispatcher dispatcher(hostMap);
+
+	NPredUnitPb::TStartSim defaultSimConfigPb;
+	TStartSim defaultSimConfig(defaultSimConfigPb);
+	defaultSimConfig.SimulationTime = 1001;
+
+	TSimulator sim(jobsNum, dispatcher);
+
+	TMessageServer server(sim, 8080);
+	server.RunAsync();
+
+	std::this_thread::sleep_for(std::chrono::seconds(1));
+
+	L_INFO << "Starting 1 sim";
+	sim.StartSimulationAsync(defaultSimConfig);
+	L_INFO << "Starting 2 sim";
+	defaultSimConfig.SimId = 1;
+	sim.StartSimulationAsync(defaultSimConfig);
+
+	std::this_thread::sleep_for(std::chrono::seconds(2));
+
+	dispatcher.Stop();
+	server.Stop();
 }
 
 
 int main(int argc, char** argv) {
-	TestRingMatrixBuffer();
+	TestBaseTalk();
 
 	return 0;
 }

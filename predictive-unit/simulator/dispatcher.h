@@ -2,6 +2,8 @@
 
 #include <predictive-unit/util/proto-struct.h>
 #include <predictive-unit/protos/hostmap.pb.h>
+#include <predictive-unit/protos/messages.pb.h>
+#include <predictive-unit/protocol.h>
 #include <predictive-unit/log.h>
 #include <predictive-unit/defaults.h>
 #include <predictive-unit/util/string.h>
@@ -10,6 +12,7 @@
 #include <Poco/Net/StreamSocket.h>
 #include <Poco/Net/SocketAddress.h>
 #include <Poco/ThreadPool.h>
+#include <Poco/Mutex.h>
 
 namespace NPredUnit {
 
@@ -74,7 +77,7 @@ namespace NPredUnit {
 	
 	class TDispatcher {
 	public:
-
+		
 		static TPair<THostRecord, TSimRecord> GetHostAndSimRecord(ui32 hostId, ui32 simId, const THostMap& hostMap) {
 			ENSURE(hostId < hostMap.HostRecord.size(), "Failed to find HostRecord with id #" << hostId);
 			const THostRecord& hostRecord = hostMap.HostRecord.at(hostId);
@@ -84,10 +87,10 @@ namespace NPredUnit {
 
 			return MakePair(hostRecord, simRecord);
 		}
+		
 		TDispatcher(const THostMap& hostMap)
 			: HostMap(hostMap) 
 		{
-			TMultiMap<ui32, TPair<Poco::Net::SocketAddress, ui32>> reverseMap;
 			L_INFO << "Setting up dispatch for host " << Poco::Net::DNS::hostName();
 
 			for (const auto& conn: HostMap.Connection) {
@@ -113,7 +116,7 @@ namespace NPredUnit {
 						port = std::stoi(hostAndPort.at(1));
 					}
 
-					reverseMap.emplace(
+					ReverseMap.emplace(
 						fromSimRecord.Id,
 						MakePair(
 							Poco::Net::SocketAddress(host, port),
@@ -123,37 +126,81 @@ namespace NPredUnit {
 				}
 			
 			}
+
+			MainThread = TThread(
+				Run,
+				std::ref(*this)
+			);
 		}
 
-		template <typename Rows, typename Cols>
-		class TDispatcherWorker: public Poco::Runnable {
-		public:
-			TDispatcherWorker(const Poco::Net::SocketAddress& dst, ui32 dstSimId, const TMatrix<Rows, Cols>& data)
-				: Dst(dst)
-				, DstSimId(dstSimId)
-				, Data(data) 
+		~TDispatcher() {
+			Stop();
+		}
+
+		void AddQueueToDispatch(ui32 simId, TMatrixRWQ* queue) {
+			Poco::FastMutex::ScopedLock lock(Mutex);
+			SimQueues.push_back(MakePair(simId, queue));
+		}
+
+		static void SendData(const TMatrixD& data, const Poco::Net::SocketAddress& address, ui32 simId) {
+			NPredUnitPb::TInputData dataMessage;
+			dataMessage.set_simid(simId);
+			SerializeMatrix(data, dataMessage.mutable_data());
+
+			Poco::Net::StreamSocket socket;
+			socket.connect(address);
+			WriteHeaderAndProtobufMessageToSocket(dataMessage, NPredUnitPb::TMessageType::INPUT_DATA, &socket);
+			socket.shutdown();
+		}
+
+		static void Run(TDispatcher& dispatcher) {
+			while (true) {
+				L_INFO << "Dispatcher: Running ..";
+				{
+					L_INFO << "Dispatcher: Lock";
+
+					Poco::FastMutex::ScopedLock lock(dispatcher.Mutex);
+					if (dispatcher.NeedToStop) {
+						break;
+					}
+				}
+
+				L_INFO << "Dispatcher: Check queue";
+				for (const auto& sq: dispatcher.SimQueues) {
+					TMatrixD data;
+					if (sq.second->try_dequeue(data)) {
+						L_INFO << "Dispatcher: Dequeuing from #sim id " << sq.first << " buffer, approx size: " << sq.second->size_approx();
+						auto range = dispatcher.ReverseMap.equal_range(sq.first);
+						for (auto it = range.first; it != range.second; ++it) {
+							L_INFO << "Dispatcher: Sending data for " << it->second.first.toString() << ", #sim id " << it->second.second;
+							SendData(data, it->second.first, it->second.second);
+						}
+						
+					}
+				}
+			}
+		}
+
+		void Stop() {
 			{
+				Poco::FastMutex::ScopedLock lock(Mutex);
+				NeedToStop = true;
 			}
-
-			void run() override final {
-
+			if (MainThread.joinable()) {
+				MainThread.join();
 			}
-
-			Poco::Net::SocketAddress Dst;
-			ui32 DstSimId;
-			TMatrix<Rows, Cols> Data;
-		};
-
-		template <int Rows, int Cols>
-		void ProcessActivationAsync(ui32 simId, const TMatrix<Rows, Cols>& activation) {
-			ThreadPool
 		}
 
 	private:
-		
-		
-		Poco::ThreadPool ThreadPool;
+
+		TThread MainThread;		
 		THostMap HostMap;
+
+		mutable Poco::FastMutex Mutex;
+
+		bool NeedToStop = false;
+		TMultiMap<ui32, TPair<Poco::Net::SocketAddress, ui32>> ReverseMap;
+		TVector<TPair<ui32, TMatrixRWQ*>> SimQueues;
 	};
 
 

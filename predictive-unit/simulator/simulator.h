@@ -41,15 +41,18 @@ namespace NPredUnit {
 		struct TSimulatorCtx {
 			TSimulatorCtx(ui32 simId, TDispatcher& dispatcher)
 				: SimId(simId)
-				, Dispatcher(dispatcher) 
+				, OutputQueue(1)
+				, Dispatcher(dispatcher)
 			{
 				InputBuffLock.clear();
 				StatsBuffLock.clear();
 				InputBuff = TMatrix<BatchSize, InputSize*BufferSize>::Zero();
+				Dispatcher.AddQueueToDispatch(SimId, &OutputQueue);
 			}
 
 			TMutex SimMutex;
 			TMatrix<BatchSize, InputSize*BufferSize> InputBuff;
+			TMatrix<BatchSize, LayerSize*BufferSize> OutputBuff;
 
 			TOptional<TStats> Stats;
 			TOptional<TStats> CollectedStats;
@@ -58,6 +61,8 @@ namespace NPredUnit {
 			TAtomicFlag StatsBuffLock;
 
 			ui32 SimId;
+			TMatrixRWQ OutputQueue;
+
 			TDispatcher& Dispatcher;
 		};
 		
@@ -181,7 +186,7 @@ namespace NPredUnit {
 		static void StartSimulationImpl(TSimulatorCtx& sim, TStartSim startSim) {
 			TGuard lock(sim.SimMutex, std::adopt_lock);
 
-			L_INFO << "Starting simulation till " << startSim.SimulationTime;
+			L_INFO << "Starting simulation #" << sim.SimId << " till " << startSim.SimulationTime;
 			
 			TSimLayer layer(startSim.LayerConfig);
 
@@ -212,13 +217,18 @@ namespace NPredUnit {
 							sim.CollectedStats.swap(sim.Stats);
 							sim.CollectedStats->F = layer.F;
 							sim.CollectedStats->Fc = layer.Fc;
-							L_INFO << "Cycle #" << nCycle << ": Stat collect is done";
+							L_INFO << "Sim id #" << sim.SimId << ", cycle #" << nCycle << ": Stat collect is done";
 						} else
 						if (sim.Stats) {
-							L_INFO << "Cycle #" << nCycle << ": Starting to collect stats";
+							L_INFO << "Sim id #" << sim.SimId << ", cycle #" << nCycle << ": Starting to collect stats";
 							collectStats = true;
 						}
 					});
+
+					L_INFO << "Sim id #" << sim.SimId << " is adding data to output buffer, approx size: " << sim.OutputQueue.size_approx();
+					while (!sim.OutputQueue.enqueue(sim.OutputBuff)) {
+						L_INFO << "Sim id #" << sim.SimId << " waiting output queue, approx size: " << sim.OutputQueue.size_approx();
+					}
 					
 					iter = 0;
 					inputIter = iter * InputSize;
@@ -238,14 +248,14 @@ namespace NPredUnit {
 						sim.Stats->Activation.block<BatchSize, LayerSize>(0, layerIter) = layer.Activation;	
 					});
 				}
-				
-				sim.Dispatcher.ProcessActivationAsync(sim.SimId, layer.Activation);
+		
+				sim.OutputBuff.block<BatchSize, LayerSize>(0, layerIter) = layer.Activation;
 
 				++iter;
 				++nSimTime;
 			}
 			
-  			L_INFO << "Simulation is done";
+  			L_INFO << "Sim id #" << sim.SimId << ": simulation is done";
 		}
 
 		ui32 JobsNum;
