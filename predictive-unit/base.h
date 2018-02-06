@@ -151,5 +151,6 @@ namespace NPredUnit {
 	using TReaderWriterQueue = moodycamel::ReaderWriterQueue<T, MAX_BLOCK_SIZE>;
 
 	using TMatrixRWQ = TReaderWriterQueue<TMatrixD>;
+	// using TMatrixRWQ = std::queue<TMa
 
 } // namespace NPredUnit

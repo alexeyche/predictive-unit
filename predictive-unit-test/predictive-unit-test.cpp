@@ -35,7 +35,7 @@ void TestBaseTalk() {
 
 	NPredUnitPb::TStartSim defaultSimConfigPb;
 	TStartSim defaultSimConfig(defaultSimConfigPb);
-	defaultSimConfig.SimulationTime = 1001;
+	defaultSimConfig.SimulationTime = 10001;
 
 	TSimulator sim(jobsNum, dispatcher);
 

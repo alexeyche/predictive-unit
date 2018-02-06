@@ -127,6 +127,8 @@ namespace NPredUnit {
 			
 			}
 
+			Mutex.clear();
+			
 			MainThread = TThread(
 				Run,
 				std::ref(*this)
@@ -138,8 +140,11 @@ namespace NPredUnit {
 		}
 
 		void AddQueueToDispatch(ui32 simId, TMatrixRWQ* queue) {
-			Poco::FastMutex::ScopedLock lock(Mutex);
-			SimQueues.push_back(MakePair(simId, queue));
+			RunLock(Mutex, [&]() {
+				SimQueues.push_back(MakePair(simId, queue));
+			});
+			// Poco::FastMutex::ScopedLock lock(Mutex);
+			// SimQueues.push_back(MakePair(simId, queue));
 		}
 
 		static void SendData(const TMatrixD& data, const Poco::Net::SocketAddress& address, ui32 simId) {
@@ -155,17 +160,21 @@ namespace NPredUnit {
 
 		static void Run(TDispatcher& dispatcher) {
 			while (true) {
-				L_INFO << "Dispatcher: Running ..";
-				{
-					L_INFO << "Dispatcher: Lock";
+				while (dispatcher.Mutex.test_and_set(std::memory_order_acquire)) {}
+				if (dispatcher.NeedToStop) break;
+				dispatcher.Mutex.clear(std::memory_order_release);
 
-					Poco::FastMutex::ScopedLock lock(dispatcher.Mutex);
-					if (dispatcher.NeedToStop) {
-						break;
-					}
-				}
+				// L_INFO << "Dispatcher: Running ..";
+				// {
+				// 	L_INFO << "Dispatcher: Lock";
 
-				L_INFO << "Dispatcher: Check queue";
+				// 	Poco::FastMutex::ScopedLock lock(dispatcher.Mutex);
+				// 	if (dispatcher.NeedToStop) {
+				// 		break;
+				// 	}
+				// }
+
+				// L_INFO << "Dispatcher: Check queue";
 				for (const auto& sq: dispatcher.SimQueues) {
 					TMatrixD data;
 					if (sq.second->try_dequeue(data)) {
@@ -183,8 +192,13 @@ namespace NPredUnit {
 
 		void Stop() {
 			{
-				Poco::FastMutex::ScopedLock lock(Mutex);
-				NeedToStop = true;
+				if (!NeedToStop) {
+					RunLock(Mutex, [&](){
+						NeedToStop = true;
+					});
+				}
+				// Poco::FastMutex::ScopedLock lock(Mutex);
+				// NeedToStop = true;
 			}
 			if (MainThread.joinable()) {
 				MainThread.join();
@@ -196,7 +210,8 @@ namespace NPredUnit {
 		TThread MainThread;		
 		THostMap HostMap;
 
-		mutable Poco::FastMutex Mutex;
+		// mutable Poco::FastMutex Mutex;
+		TAtomicFlag Mutex;
 
 		bool NeedToStop = false;
 		TMultiMap<ui32, TPair<Poco::Net::SocketAddress, ui32>> ReverseMap;
