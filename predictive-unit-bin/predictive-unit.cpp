@@ -56,11 +56,10 @@ int server(const TVector<TString>& argsVec) {
 	
 	// Dispatcher
 	THostMap hostMap(hostMapPb);
-	TDispatcher dispatcher(hostMap);
-
+	
 	// Simulator
 	NPredUnitPb::TStartSim defaultSimConfig;
-	TSimulator sim(jobsNum, dispatcher);
+	TSimulator sim(jobsNum, hostMap);
 	
 	{
 		if (!startData.empty()) {
@@ -70,8 +69,8 @@ int server(const TVector<TString>& argsVec) {
 
 		if (startSim) {
 			TStartSim startSimConfig(defaultSimConfig);
-			startSimConfig.SimulationTime = *startSim;
-			sim.StartSimulationAsync(startSimConfig);
+			startSimConfig.SimConfig.SimulationTime = *startSim;
+			sim.StartSimulationAsync(startSimConfig.SimConfig);
 		}
 	}
 

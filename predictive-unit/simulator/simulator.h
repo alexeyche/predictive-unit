@@ -13,13 +13,17 @@ namespace NPredUnit {
 
 	class TSimulator {
 	public:
-		static constexpr ui32 BatchSize = 4;
-		static constexpr ui32 InputSize = 2;
-		static constexpr ui32 FilterSize = 1;
-		static constexpr ui32 LayerSize = 10;
-		static constexpr ui32 BufferSize = 100;
+
+		static constexpr ui32 BufferSize = 2000;
 
 		struct TStats: TProtoStructure<NPredUnitPb::TStats> {
+			TStats(TLayerConfig config) {
+				Membrane = TMatrixD::Zero(config.BatchSize, BufferSize*config.LayerSize);
+				Activation = TMatrixD::Zero(config.BatchSize, BufferSize*config.LayerSize);
+				F = TMatrixD::Zero(config.InputSize*config.FilterSize, config.LayerSize);
+				Fc = TMatrixD::Zero(config.LayerSize, config.LayerSize);
+			}
+
 			NPredUnitPb::TStats ToProto() const {
 				NPredUnitPb::TStats stats;
 				SerializeMatrix(Membrane, stats.mutable_membrane());
@@ -29,30 +33,31 @@ namespace NPredUnit {
 				return stats;
 			}
 
-			TMatrix<BatchSize, BufferSize*LayerSize> Membrane;
-			TMatrix<BatchSize, BufferSize*LayerSize> Activation;
+			TMatrixD Membrane;
+			TMatrixD Activation;
 			
-			TMatrix<InputSize*FilterSize, LayerSize> F;
-			TMatrix<LayerSize, LayerSize> Fc;
+			TMatrixD F;
+			TMatrixD Fc;
 		};
 
-		using TSimLayer = TLayer<BatchSize, LayerSize, InputSize, FilterSize>;
-
 		struct TSimulatorCtx {
-			TSimulatorCtx(ui32 simId, TDispatcher& dispatcher)
-				: SimId(simId)
+			TSimulatorCtx(TSimConfig config, TDispatcher& dispatcher)
+				: Config(config)
 				, OutputQueue(1)
 				, Dispatcher(dispatcher)
 			{
 				InputBuffLock.clear();
 				StatsBuffLock.clear();
-				InputBuff = TMatrix<BatchSize, InputSize*BufferSize>::Zero();
-				Dispatcher.AddQueueToDispatch(SimId, &OutputQueue);
+				InputBuff = TMatrixD::Zero(Config.LayerConfig.BatchSize, Config.LayerConfig.InputSize*BufferSize);
+				OutputBuff = TMatrixD::Zero(Config.LayerConfig.BatchSize, Config.LayerConfig.LayerSize*BufferSize);
+				Dispatcher.AddQueueToDispatch(Config.Id, &OutputQueue);
 			}
+			
+			TSimConfig Config;
 
 			TMutex SimMutex;
-			TMatrix<BatchSize, InputSize*BufferSize> InputBuff;
-			TMatrix<BatchSize, LayerSize*BufferSize> OutputBuff;
+			TMatrixD InputBuff;
+			TMatrixD OutputBuff;
 
 			TOptional<TStats> Stats;
 			TOptional<TStats> CollectedStats;
@@ -60,16 +65,16 @@ namespace NPredUnit {
 			TAtomicFlag InputBuffLock;
 			TAtomicFlag StatsBuffLock;
 
-			ui32 SimId;
 			TMatrixRWQ OutputQueue;
 
 			TDispatcher& Dispatcher;
 		};
 		
 
-		TSimulator(ui32 jobsNum, TDispatcher& dispatcher)
+		TSimulator(ui32 jobsNum, THostMap hostMap)
 			: JobsNum(jobsNum)
-			, Dispatcher(dispatcher)
+			, HostMap(hostMap)
+			, Dispatcher(HostMap)
 		{
 		}
 
@@ -81,51 +86,60 @@ namespace NPredUnit {
 					t.second.join();	
 				}
 			}
+			Dispatcher.Stop();
+		}
+		
+		void StartSimulationsAsync() {
+			for (const auto& hr: HostMap.HostRecord) {
+				for (const auto& sim: hr.SimConfig) {
+					StartSimulationAsync(sim);
+				}
+			}
 		}
 
-		bool StartSimulationAsync(const TStartSim& startSim) {
-			if (!IsSumulationRunning(startSim.SimId)) {
+		bool StartSimulationAsync(const TSimConfig& simConfig) {
+			if (!IsSumulationRunning(simConfig.Id)) {
 				TGuard lock(SimThreadAccMutex);
 				
-				auto simCtxOld = SimCtx.find(startSim.SimId);
+				auto simCtxOld = SimCtx.find(simConfig.Id);
 				if (simCtxOld != SimCtx.end()) {
 					SimCtx.erase(simCtxOld);
 				}
 
-				auto simThreadOld = SimThread.find(startSim.SimId);
+				auto simThreadOld = SimThread.find(simConfig.Id);
 				if (simThreadOld != SimThread.end()) {
 					simThreadOld->second.join();
 					SimThread.erase(simThreadOld);
 				}
 				
 				auto res = SimCtx.emplace(
-					startSim.SimId, 
-					std::make_unique<TSimulatorCtx>(startSim.SimId, Dispatcher)
+					simConfig.Id, 
+					std::make_unique<TSimulatorCtx>(simConfig, Dispatcher)
 				);
 				
 				ENSURE(res.second, "Failed to insers thread ctx");
 				ENSURE(res.first->second->SimMutex.try_lock(), "Failed to acquire sim lock");
 				TSimulatorCtx& ctx = *(res.first->second);
 				
-				if (startSim.InputData.Data.size() > 0) {
-					IngestData(startSim.InputData, &ctx);
-				}
+				// if (startSim.InputData.Data.size() > 0) {
+				// 	IngestData(startSim.InputData, &ctx);
+				// }
 
-				if (startSim.CollectStats) {
-					ctx.Stats.emplace();	
+				if (simConfig.CollectStats) {
+					ctx.Stats.emplace(simConfig.LayerConfig);	
 				}
 
 				SimThread.emplace(
-					startSim.SimId,
+					simConfig.Id,
 					std::thread(
 						StartSimulationImpl, 
 						std::ref(ctx), 
-						startSim
+						simConfig
 					)
 				);
 				return true;
 			} else {
-				L_INFO << "Sim # " << startSim.SimId << " is running, unable to start new one ...";
+				L_INFO << "Sim # " << simConfig.Id << " is running, unable to start new one ...";
 				return false;
 			}
 		}
@@ -153,15 +167,25 @@ namespace NPredUnit {
 		}
 
 		void IngestData(const TInputData& inp, TSimulatorCtx* simCtx) {
-			for (ui32 t=0; t<ToUi32(inp.Data.cols()); t+=InputSize) {
-				simCtx->InputBuff.block<BatchSize, InputSize*FilterSize>(0, t) = inp.Data.block<BatchSize, InputSize*FilterSize>(0, t);
+			for (ui32 t=0; t<ToUi32(inp.Data.cols()); t+=simCtx->Config.LayerConfig.InputSize) {
+				simCtx->InputBuff.block(
+					0, 
+					t,
+					simCtx->Config.LayerConfig.BatchSize, 
+					simCtx->Config.LayerConfig.InputSize*simCtx->Config.LayerConfig.FilterSize
+				) = inp.Data.block(
+					0, 
+					t,
+					simCtx->Config.LayerConfig.BatchSize, 
+					simCtx->Config.LayerConfig.InputSize*simCtx->Config.LayerConfig.FilterSize
+				);
 			}
 		}
 
 		void IngestDataAsync(const TInputData& inp) {
 			auto& simCtx = GetContext(inp.SimId);
 			
-			ENSURE(BatchSize == inp.Data.rows(), "Wrong batch size"); 
+			ENSURE(simCtx.Config.LayerConfig.BatchSize == ToUi32(inp.Data.rows()), "Wrong batch size"); 
 			while (simCtx.InputBuffLock.test_and_set(std::memory_order_acquire)) {}
 			IngestData(inp, &simCtx);
 			simCtx.InputBuffLock.clear(std::memory_order_release);
@@ -177,18 +201,18 @@ namespace NPredUnit {
 					simCtx.CollectedStats.swap(stat);
 				} else {
 					L_INFO << "Collected stats are not found, starting to collect";
-					simCtx.Stats.emplace();	
+					simCtx.Stats.emplace(simCtx.Config.LayerConfig);	
 				}
 			}); 
 			return stat;
 		}
 
-		static void StartSimulationImpl(TSimulatorCtx& sim, TStartSim startSim) {
+		static void StartSimulationImpl(TSimulatorCtx& sim, TSimConfig simConfig) {
 			TGuard lock(sim.SimMutex, std::adopt_lock);
 
-			L_INFO << "Starting simulation #" << sim.SimId << " till " << startSim.SimulationTime;
+			L_INFO << "Starting simulation #" << sim.Config.Id << " till " << simConfig.SimulationTime;
 			
-			TSimLayer layer(startSim.LayerConfig);
+			TLayer layer(simConfig.LayerConfig);
 
 			ui64 iter = 0;
 			ui64 nCycle = 0;
@@ -204,64 +228,85 @@ namespace NPredUnit {
 				}
 			});
 
-			const bool endLess = startSim.SimulationTime < 0;
-			while (endLess || (nSimTime < startSim.SimulationTime)) {
-				ui32 inputIter = iter * InputSize;
-				ui32 layerIter = iter * LayerSize;
+			const bool endLess = simConfig.SimulationTime < 0;
+			while (endLess || (nSimTime < simConfig.SimulationTime)) {
+				ui32 inputIter = iter * sim.Config.LayerConfig.InputSize;
+				ui32 layerIter = iter * sim.Config.LayerConfig.LayerSize;
 				
-				if (inputIter >= sim.InputBuff.cols() - FilterSize) {
+				if (inputIter >= sim.InputBuff.cols() - sim.Config.LayerConfig.FilterSize) {
 					RunLock(sim.StatsBuffLock, [&]() {
 						if (collectStats) {
 							collectStats = false;
-							sim.CollectedStats = TOptional<TStats>();
+							sim.CollectedStats = TOptional<TStats>(sim.Config.LayerConfig);
 							sim.CollectedStats.swap(sim.Stats);
 							sim.CollectedStats->F = layer.F;
 							sim.CollectedStats->Fc = layer.Fc;
-							L_INFO << "Sim id #" << sim.SimId << ", cycle #" << nCycle << ": Stat collect is done";
+							L_INFO << "Sim id #" << sim.Config.Id << ", cycle #" << nCycle << ": Stat collect is done";
 						} else
 						if (sim.Stats) {
-							L_INFO << "Sim id #" << sim.SimId << ", cycle #" << nCycle << ": Starting to collect stats";
+							L_INFO << "Sim id #" << sim.Config.Id << ", cycle #" << nCycle << ": Starting to collect stats";
 							collectStats = true;
 						}
 					});
 
-					L_INFO << "Sim id #" << sim.SimId << " is adding data to output buffer, approx size: " << sim.OutputQueue.size_approx();
+					L_INFO << "Sim id #" << sim.Config.Id << " is adding data to output buffer, approx size: " << sim.OutputQueue.size_approx();
 					while (!sim.OutputQueue.enqueue(sim.OutputBuff)) {
-						L_INFO << "Sim id #" << sim.SimId << " waiting output queue, approx size: " << sim.OutputQueue.size_approx();
+						L_INFO << "Sim id #" << sim.Config.Id << " waiting output queue, approx size: " << sim.OutputQueue.size_approx();
 					}
 					
 					iter = 0;
-					inputIter = iter * InputSize;
-					layerIter = iter * LayerSize;
+					inputIter = iter * sim.Config.LayerConfig.InputSize;
+					layerIter = iter * sim.Config.LayerConfig.LayerSize;
 					++nCycle;
 				}
 				
 				while (sim.InputBuffLock.test_and_set(std::memory_order_acquire)) {}
-				auto input = sim.InputBuff.block<BatchSize, InputSize*FilterSize>(0, inputIter);
+				auto input = sim.InputBuff.block(
+					0, 
+					inputIter,
+					sim.Config.LayerConfig.BatchSize, 
+					sim.Config.LayerConfig.InputSize*sim.Config.LayerConfig.FilterSize	
+				);
 				sim.InputBuffLock.clear(std::memory_order_release);
 
 				layer.Tick(input);
 				
 				if (collectStats) {
 					RunLock(sim.StatsBuffLock, [&]() {
-						sim.Stats->Membrane.block<BatchSize, LayerSize>(0, layerIter) = layer.Membrane;
-						sim.Stats->Activation.block<BatchSize, LayerSize>(0, layerIter) = layer.Activation;	
+						sim.Stats->Membrane.block(
+							0, 
+							layerIter,
+							sim.Config.LayerConfig.BatchSize, 
+							sim.Config.LayerConfig.LayerSize
+						) = layer.Membrane;
+						sim.Stats->Activation.block(
+							0, 
+							layerIter,
+							sim.Config.LayerConfig.BatchSize, 
+							sim.Config.LayerConfig.LayerSize
+						) = layer.Activation;	
 					});
 				}
 		
-				sim.OutputBuff.block<BatchSize, LayerSize>(0, layerIter) = layer.Activation;
+				sim.OutputBuff.block(
+					0, 
+					layerIter,
+					sim.Config.LayerConfig.BatchSize, 
+					sim.Config.LayerConfig.LayerSize
+				) = layer.Activation;
 
 				++iter;
 				++nSimTime;
 			}
 			
-  			L_INFO << "Sim id #" << sim.SimId << ": simulation is done";
+  			L_INFO << "Sim id #" << sim.Config.Id << ": simulation is done";
 		}
 
 		ui32 JobsNum;
 		TMutex SimThreadAccMutex;
 		TMap<ui32, TThread> SimThread;
 		TMap<ui32, TUniquePtr<TSimulatorCtx>> SimCtx;
-		TDispatcher& Dispatcher;
+		THostMap HostMap;
+		TDispatcher Dispatcher;
 	};
 }

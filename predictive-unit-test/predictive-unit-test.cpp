@@ -18,9 +18,24 @@ void TestBaseTalk() {
 		auto* hr = hostMapPb.add_hostrecord();
 		hr->set_id(0);
 		hr->set_host("127.0.0.1");
-		hr->add_simrecord()->set_id(0);
-		hr->add_simrecord()->set_id(1);
-		
+
+		auto* sc0 = hr->add_simconfig();
+		sc0->set_id(0);
+		sc0->set_simulationtime(10000);
+		sc0->mutable_layerconfig()->set_layersize(100);
+		sc0->mutable_layerconfig()->set_inputsize(10);
+		sc0->mutable_layerconfig()->set_batchsize(5);
+		sc0->mutable_layerconfig()->set_filtersize(1);
+
+
+		auto* sc1 = hr->add_simconfig();
+		sc1->set_id(1);
+		sc1->set_simulationtime(10000);
+		sc1->mutable_layerconfig()->set_layersize(100);
+		sc1->mutable_layerconfig()->set_inputsize(100);
+		sc1->mutable_layerconfig()->set_batchsize(5);
+		sc1->mutable_layerconfig()->set_filtersize(1);
+
 		auto* conn = hostMapPb.add_connection();
 		conn->mutable_from()->set_host(0);
 		conn->mutable_from()->set_sim(0);
@@ -30,29 +45,18 @@ void TestBaseTalk() {
 
 	THostMap hostMap(hostMapPb);
 
-
-	TDispatcher dispatcher(hostMap);
-
 	NPredUnitPb::TStartSim defaultSimConfigPb;
 	TStartSim defaultSimConfig(defaultSimConfigPb);
-	defaultSimConfig.SimulationTime = 10001;
 
-	TSimulator sim(jobsNum, dispatcher);
+	TSimulator sim(jobsNum, hostMap);
 
 	TMessageServer server(sim, 8080);
 	server.RunAsync();
 
-	std::this_thread::sleep_for(std::chrono::seconds(1));
-
-	L_INFO << "Starting 1 sim";
-	sim.StartSimulationAsync(defaultSimConfig);
-	L_INFO << "Starting 2 sim";
-	defaultSimConfig.SimId = 1;
-	sim.StartSimulationAsync(defaultSimConfig);
+	sim.StartSimulationsAsync();
 
 	std::this_thread::sleep_for(std::chrono::seconds(2));
 
-	dispatcher.Stop();
 	server.Stop();
 }
 

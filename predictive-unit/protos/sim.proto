@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package NPredUnitPb;
+
+
+import "layer-config.proto";
+
+
+message TSimConfig {
+	uint32 Id = 1;
+	int32 SimulationTime = 2;
+	bool CollectStats = 3;
+	TLayerConfig LayerConfig = 4;
+}
+

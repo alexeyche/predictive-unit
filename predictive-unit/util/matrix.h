@@ -9,7 +9,7 @@ namespace NPredUnit {
 
 	void DeserializeMatrix(const NPredUnitPb::TMatrix& m, TMatrixD* dst);
 
-	void SerializeMatrix(const auto& m, NPredUnitPb::TMatrix* dst) {
+	inline void SerializeMatrix(const TMatrixD& m, NPredUnitPb::TMatrix* dst) {
 		if (m.rows() == 0) {
 			return;
 		}

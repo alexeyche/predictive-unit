@@ -2,15 +2,12 @@ syntax = "proto3";
 
 package NPredUnitPb;
 
-
-message TSimRecord {
-	uint32 Id = 1;
-}
+import "sim.proto";
 
 message THostRecord {
 	uint32 Id = 1;
 	string Host = 2;
-	repeated TSimRecord SimRecord = 3;
+	repeated TSimConfig SimConfig = 3;
 }
 
 message TConnectionInstance {

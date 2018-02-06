@@ -16,26 +16,18 @@
 
 namespace NPredUnit {
 
-	struct TSimRecord: public TProtoStructure<NPredUnitPb::TSimRecord> {
-		TSimRecord(const NPredUnitPb::TSimRecord& sr) {
-			FillFromProto(sr, NPredUnitPb::TSimRecord::kIdFieldNumber, &Id);
-		}
-
-		ui32 Id = 0;
-	};
-
 	struct THostRecord: public TProtoStructure<NPredUnitPb::THostRecord> {
 		THostRecord(const NPredUnitPb::THostRecord& hr) {
 			FillFromProto(hr, NPredUnitPb::THostRecord::kIdFieldNumber, &Id);
 			FillFromProto(hr, NPredUnitPb::THostRecord::kHostFieldNumber, &Host);
-			for (const auto& sr: hr.simrecord()) {
-				SimRecord.push_back(TSimRecord(sr));
+			for (const auto& sr: hr.simconfig()) {
+				SimConfig.push_back(TSimConfig(sr));
 			}
 		}
 
 		ui32 Id = 0;
 		TString Host;
-		TVector<TSimRecord> SimRecord;
+		TVector<TSimConfig> SimConfig;
 	};
 
 	struct TConnectionInstance: public TProtoStructure<NPredUnitPb::TConnectionInstance> {
@@ -78,12 +70,12 @@ namespace NPredUnit {
 	class TDispatcher {
 	public:
 		
-		static TPair<THostRecord, TSimRecord> GetHostAndSimRecord(ui32 hostId, ui32 simId, const THostMap& hostMap) {
+		static TPair<THostRecord, TSimConfig> GetHostAndSimConfig(ui32 hostId, ui32 simId, const THostMap& hostMap) {
 			ENSURE(hostId < hostMap.HostRecord.size(), "Failed to find HostRecord with id #" << hostId);
 			const THostRecord& hostRecord = hostMap.HostRecord.at(hostId);
-			ENSURE(simId < hostRecord.SimRecord.size(), 
-				"Failed to find SimRecord with id # " << simId << " on host " << hostRecord.Host);
-			const TSimRecord& simRecord = hostRecord.SimRecord.at(simId);
+			ENSURE(simId < hostRecord.SimConfig.size(), 
+				"Failed to find SimConfig with id # " << simId << " on host " << hostRecord.Host);
+			const TSimConfig& simRecord = hostRecord.SimConfig.at(simId);
 
 			return MakePair(hostRecord, simRecord);
 		}
@@ -94,13 +86,13 @@ namespace NPredUnit {
 			L_INFO << "Setting up dispatch for host " << Poco::Net::DNS::hostName();
 
 			for (const auto& conn: HostMap.Connection) {
-				auto fromHostSimPair = GetHostAndSimRecord(conn.From.Host, conn.From.Sim, HostMap);
+				auto fromHostSimPair = GetHostAndSimConfig(conn.From.Host, conn.From.Sim, HostMap);
 				const THostRecord& fromHostRecord = fromHostSimPair.first;
-				const TSimRecord& fromSimRecord = fromHostSimPair.second;
+				const TSimConfig& fromSimConfig = fromHostSimPair.second;
 
-				auto toHostSimPair = GetHostAndSimRecord(conn.To.Host, conn.To.Sim, HostMap);
+				auto toHostSimPair = GetHostAndSimConfig(conn.To.Host, conn.To.Sim, HostMap);
 				const THostRecord& toHostRecord = toHostSimPair.first;
-				const TSimRecord& toSimRecord = toHostSimPair.second;
+				const TSimConfig& toSimConfig = toHostSimPair.second;
 
 				if ((fromHostRecord.Host == "localhost") || (fromHostRecord.Host == "127.0.0.1") || (fromHostRecord.Host == Poco::Net::DNS::hostName())) {
 					TVector<TString> hostAndPort = NStr::Split(toHostRecord.Host, ':', 1);
@@ -110,17 +102,17 @@ namespace NPredUnit {
 					TString host = hostAndPort.at(0);
 					ui32 port = TDefaults::ServerPort;
 
-					L_INFO << "Connecting " << fromHostRecord.Host << ", sim #" << fromSimRecord.Id  << " to " << host << " sim # " << toSimRecord.Id; 
+					L_INFO << "Connecting " << fromHostRecord.Host << ", sim #" << fromSimConfig.Id  << " to " << host << " sim # " << toSimConfig.Id; 
 					
 					if ((hostAndPort.size() == 2) && !hostAndPort[1].empty()) {
 						port = std::stoi(hostAndPort.at(1));
 					}
 
 					ReverseMap.emplace(
-						fromSimRecord.Id,
+						fromSimConfig.Id,
 						MakePair(
 							Poco::Net::SocketAddress(host, port),
-							toSimRecord.Id
+							toSimConfig.Id
 						)
 					);
 				}
@@ -176,16 +168,19 @@ namespace NPredUnit {
 
 				// L_INFO << "Dispatcher: Check queue";
 				for (const auto& sq: dispatcher.SimQueues) {
-					TMatrixD data;
-					if (sq.second->try_dequeue(data)) {
-						L_INFO << "Dispatcher: Dequeuing from #sim id " << sq.first << " buffer, approx size: " << sq.second->size_approx();
-						auto range = dispatcher.ReverseMap.equal_range(sq.first);
-						for (auto it = range.first; it != range.second; ++it) {
-							L_INFO << "Dispatcher: Sending data for " << it->second.first.toString() << ", #sim id " << it->second.second;
-							SendData(data, it->second.first, it->second.second);
-						}
-						
+					while (sq.second->size_approx()>0) {
+						TMatrixD data;
+						if (sq.second->try_dequeue(data)) {
+							L_INFO << "Dispatcher: Dequeuing from #sim id " << sq.first << " buffer, approx size: " << sq.second->size_approx();
+							auto range = dispatcher.ReverseMap.equal_range(sq.first);
+							for (auto it = range.first; it != range.second; ++it) {
+								L_INFO << "Dispatcher: Sending data for " << it->second.first.toString() << ", #sim id " << it->second.second;
+								SendData(data, it->second.first, it->second.second);
+							}
+							
+						}	
 					}
+					
 				}
 			}
 		}

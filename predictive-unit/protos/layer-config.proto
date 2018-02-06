@@ -2,10 +2,19 @@ syntax = "proto3";
 
 package NPredUnitPb;
 
-message TLayerConfig {
-    double Tau = 1;
+
+message TLayerConstants {
+	double Tau = 1;
 	double TauMean = 2;
 	double AdaptGain = 3;
 	double LearningRate = 4;
+}
+
+message TLayerConfig {
+	uint32 LayerSize = 1;
+	uint32 InputSize = 2;
+	uint32 BatchSize = 3;
+	uint32 FilterSize = 4;
+	TLayerConstants LayerConstants = 5; 
 }
 

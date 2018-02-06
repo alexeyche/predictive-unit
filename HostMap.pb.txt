@@ -1,8 +1,15 @@
 HostRecord {
 	Id: 0
 	Host: "127.0.0.1"
-	SimRecord {Id: 0}
-	SimRecord {Id: 1}
+	SimConfig {
+		Id: 0
+		InputSize: 2
+		LayerSize: 100
+	}
+	SimConfig {
+		Id: 1
+		LayerSize: 4
+	}
 }
 
 Connection {

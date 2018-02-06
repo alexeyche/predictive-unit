@@ -8,6 +8,7 @@ set(SOURCES
     matrix.cpp
     protobuf.cpp
     ring-matrix-buffer.cpp
+    rwqueue.cpp
 )
 
 set(DIR_SRCS)

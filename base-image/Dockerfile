@@ -34,7 +34,12 @@ RUN apt-get install -y \
 	telnet \
 	netcat \
 	htop \
-	python-tk
+	python-tk \
+	clang-5.0
+
+ENV CC=/usr/bin/clang-5.0
+ENV CXX=/usr/bin/clang++-5.0
+
 
 RUN pip install \
 	protobuf \

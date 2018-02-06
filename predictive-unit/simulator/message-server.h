@@ -51,7 +51,7 @@ namespace NPredUnit {
 						{
 							TStartSim startSim = ReadProtobufMessageFromSocket<TStartSim>(sck, header.MessageSize);
 			  			
-							if (Sim.StartSimulationAsync(startSim)) {
+							if (Sim.StartSimulationAsync(startSim.SimConfig)) {
 								response.set_responsetype(NPredUnitPb::TServerResponse::OK);
 							} else {
 								response.set_responsetype(NPredUnitPb::TServerResponse::BUSY);

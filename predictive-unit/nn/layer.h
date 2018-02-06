@@ -6,37 +6,39 @@
 
 namespace NPredUnit {
 
-	template <ui32 Rows, ui32 Cols>
-	TMatrix<Rows, Cols> unitScalingInit() {
-		auto m = TMatrix<Rows, Cols>::Random();
+	inline TMatrixD unitScalingInit(ui32 Rows, ui32 Cols) {
+		auto m = TMatrixD::Random(Rows, Cols);
 		double initSpan = std::sqrt(3.0)/std::sqrt(std::max(Rows, Cols));
 		return 2.0 * initSpan * (m.array() + 1.0) / 2.0 - initSpan;
 	}
 
-	template <int Rows, int Cols>
-	TMatrix<Rows, Cols> relu(TMatrix<Rows, Cols> x) {
+	inline TMatrixD relu(TMatrixD x) {
 		return x.cwiseMax(0.0);
 	}
 
 
-	template <ui32 BatchSize, ui32 LayerSize, ui32 InputSize, ui32 FilterSize>
 	class TLayer {
 	public:
 
 		TLayer(TLayerConfig config)
-			: C(config)
+			: C(config.LayerConstants)
+			, BatchSize(config.BatchSize)
+			, LayerSize(config.LayerSize)
+			, InputSize(config.InputSize)
+			, FilterSize(config.FilterSize)
  		{
- 			Activation = TMatrix<BatchSize, LayerSize>::Zero();
- 			Membrane = TMatrix<BatchSize, LayerSize>::Zero();
+ 			Activation = TMatrixD::Zero(BatchSize, LayerSize);
+ 			Membrane = TMatrixD::Zero(BatchSize, LayerSize);
 
-			F = unitScalingInit<FilterSize * InputSize, LayerSize>();
+			F = unitScalingInit(FilterSize * InputSize, LayerSize);
 			F = (F.array().rowwise())/(F.colwise().norm().array());
-			Fc = F.transpose() * F - TMatrix<LayerSize, LayerSize>::Identity();
+			Fc = F.transpose() * F - TMatrixD::Identity(LayerSize, LayerSize);
 		}
 
-		void Tick(const TMatrix<BatchSize, InputSize*FilterSize> input) {
-			TMatrix<BatchSize, InputSize*FilterSize> input_hat = Activation * F.transpose();
-			TMatrix<BatchSize, InputSize*FilterSize> e = input - input_hat;
+		void Tick(const TMatrixD input) {
+			TMatrixD input_hat = Activation * F.transpose();
+			
+			TMatrixD e = input - input_hat;
 
 			Membrane += (e * F - Membrane) / C.Tau;
 
@@ -44,15 +46,21 @@ namespace NPredUnit {
 		}
 
 	private:
-		TLayerConfig C;
+		TLayerConstants C;
+	
+	private:
+		ui32 BatchSize;
+		ui32 LayerSize;
+		ui32 InputSize;
+		ui32 FilterSize;
 
 
 	public:
-		TMatrix<BatchSize, LayerSize> Membrane;
-		TMatrix<BatchSize, LayerSize> Activation;
+		TMatrixD Membrane;
+		TMatrixD Activation;
 		
-		TMatrix<InputSize*FilterSize, LayerSize> F;
-		TMatrix<LayerSize, LayerSize> Fc;
+		TMatrixD F;
+		TMatrixD Fc;
 	};
 
 

@@ -48,6 +48,21 @@ namespace NPredUnit {
 	void ReadProtobufMessage(std::istream& in, NPb::Message* dst);
 
 
+	struct TSimConfig: TProtoStructure<NPredUnitPb::TSimConfig> {
+		TSimConfig(const NPredUnitPb::TSimConfig& m)
+			: LayerConfig(m.layerconfig()) 
+		{
+			FillFromProto(m, NPredUnitPb::TSimConfig::kIdFieldNumber, &Id);
+			FillFromProto(m, NPredUnitPb::TSimConfig::kSimulationTimeFieldNumber, &SimulationTime);
+			FillFromProto(m, NPredUnitPb::TSimConfig::kCollectStatsFieldNumber, &CollectStats);
+		}
+
+		ui32 Id = 0;
+		i32 SimulationTime = -1;
+		bool CollectStats = true;
+		TLayerConfig LayerConfig;
+	};
+
 	struct TInputData: TProtoStructure<NPredUnitPb::TInputData> {
 		TInputData(const NPredUnitPb::TInputData& m) {
 			FillFromProto(m, NPredUnitPb::TInputData::kSimIdFieldNumber, &SimId);
@@ -65,18 +80,12 @@ namespace NPredUnit {
 		}
 		
 		TStartSim(const NPredUnitPb::TStartSim& m)
-			: LayerConfig(m.layerconfig()) 
+			: SimConfig(m.simconfig()) 
 			, InputData(m.inputdata())
 		{
-			FillFromProto(m, NPredUnitPb::TStartSim::kSimIdFieldNumber, &SimId);
-			FillFromProto(m, NPredUnitPb::TStartSim::kSimulationTimeFieldNumber, &SimulationTime);
-			FillFromProto(m, NPredUnitPb::TStartSim::kCollectStatsFieldNumber, &CollectStats);
 		}
 
-		TLayerConfig LayerConfig;
-		ui32 SimId = 0;
-		i32 SimulationTime = -1;
-		bool CollectStats = true;
+		TSimConfig SimConfig;
 		TInputData InputData;
 	};
 

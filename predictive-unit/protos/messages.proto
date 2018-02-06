@@ -4,6 +4,7 @@ package NPredUnitPb;
 
 import "matrix.proto";
 import "layer-config.proto";
+import "sim.proto";
 
 message TMessageType {
 	enum EMessageType {
@@ -18,11 +19,8 @@ message TMessageType {
 
 
 message TStartSim {
-	TLayerConfig LayerConfig = 1;
-	uint32 SimId = 2;
-	int32 SimulationTime = 3;
-	bool CollectStats = 4;
-	TInputData InputData = 5;
+	TSimConfig SimConfig = 1;
+	TInputData InputData = 2;
 }
 
 message TStatRequest {
