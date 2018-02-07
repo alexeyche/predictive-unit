@@ -14,7 +14,7 @@ namespace NPredUnit {
 	class TSimulator {
 	public:
 
-		static constexpr ui32 BufferSize = 2000;
+		static constexpr ui32 BufferSize = 20;
 
 		struct TStats: TProtoStructure<NPredUnitPb::TStats> {
 			TStats(TLayerConfig config) {

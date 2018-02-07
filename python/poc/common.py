@@ -49,6 +49,18 @@ class Relu(Act):
         return dadx
 
 
+class BoundRelu(Act):
+    def __call__(self, x):
+        return np.minimum(np.maximum(x, 0.0), 1.0)
+        
+    def deriv(self, x):
+        if isinstance(x, float):
+            return 1.0 if x > 0.0 else 0.0
+        dadx = np.zeros(x.shape)
+        dadx[np.where(x > 0.0)] = 1.0
+        return dadx
+
+
 def oja_rule(x, y, W, dy):
     assert W.shape[0] == len(x), "x, {} != {}".format(W.shape[0], len(x))
     assert W.shape[1] == len(y), "y, {} != {}".format(W.shape[1], len(y))
