@@ -8,10 +8,6 @@ from poc.common import *
 from inspect import currentframe, getframeinfo
 
 
-def norm(data):
-    data_denom = np.sqrt(np.sum(data ** 2, axis=0))
-    data = data/data_denom
-    return data
 
 
 

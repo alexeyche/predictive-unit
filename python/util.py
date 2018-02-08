@@ -127,12 +127,10 @@ def moving_average(a, n=3) :
     v = ret[n - 1:] / n
     return np.pad(v, [0, n-1], 'constant')
 
-def norm(data, return_denom=False):
-    data_denom = np.sqrt(np.sum(data ** 2))
+def norm(data, axis=0):
+    data_denom = np.sqrt(np.sum(data ** 2, axis=axis))
     data = data/data_denom
-    if not return_denom:
-        return data
-    return data, data_denom
+    return data
 
 
 

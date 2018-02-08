@@ -80,8 +80,4 @@ class Learning(object):
     OJA_FEED = 4
 
 
-def norm(f):
-    return np.asarray([ f[ri, :] * n for ri, n in enumerate(np.sqrt(np.sum(f ** 2, 1)+1e-07)) ])
-    # return np.asarray([ f[:, ci] / n for ci, n in enumerate(np.sqrt(np.sum(f ** 2, 0)+1e-07)) ]).T
-    # return f
 
