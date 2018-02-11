@@ -84,8 +84,10 @@ namespace NPredUnit {
 							TStatRequest sr = ReadProtobufMessageFromSocket<TStatRequest>(sck, header.MessageSize);
 							auto stats = Sim.GetStats(sr);
 							if (stats) {
+
 								response.mutable_stats()->CopyFrom(stats->ToProto());
 								response.set_responsetype(NPredUnitPb::TServerResponse::OK);
+								L_INFO << response.ByteSize();
 							} else {
 								response.set_message("Simluation is busy (probably started to colect statistics)");
 								response.set_responsetype(NPredUnitPb::TServerResponse::BUSY);
@@ -156,16 +158,17 @@ namespace NPredUnit {
 		}
 		
 		void Run() {
-			Server.start();	
-	
-			L_INFO << "Listening port " << Port;
-			Terminate.wait();
-	
-			L_INFO << "Got terminate signal, going down";
-			Server.stop();
+			RunAsync();
+			Wait();
 		}
 
-
+		void Wait() {
+			L_INFO << "Listening port " << Port;
+			Terminate.wait();
+		
+			L_INFO << "Got terminate signal, going down";
+			Server.stop();	
+		}
 
 	private:
 		ui32 Port;

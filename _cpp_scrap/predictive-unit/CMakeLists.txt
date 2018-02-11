@@ -4,6 +4,7 @@ set(SOURCES
   error.cpp
   base.cpp
   defaults.cpp
+  protocol.cpp
 )
 
 set(DIR_SRCS)
@@ -15,8 +16,10 @@ endforeach()
 set(PU_SRCS ${PU_SRCS} ${DIR_SRCS})
 
 set(DIRS
+	protos
   util
-  protos
+  nn
+  simulator
 )
 
 foreach(dir ${DIRS})

@@ -3,12 +3,17 @@ HostRecord {
 	Host: "127.0.0.1"
 	SimConfig {
 		Id: 0
-		InputSize: 2
-		LayerSize: 100
+		LayerConfig {
+			InputSize: 2
+			LayerSize: 100
+		}
 	}
 	SimConfig {
 		Id: 1
-		LayerSize: 4
+		LayerConfig {
+			InputSize: 100
+			LayerSize: 4
+		}
 	}
 }
 

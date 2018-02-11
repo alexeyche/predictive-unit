@@ -1,5 +1,9 @@
 SET(SOURCES
-	matrix.proto
+	sim.proto 	
+ 	matrix.proto
+  	layer-config.proto
+ 	messages.proto
+ 	hostmap.proto
 )
 
 

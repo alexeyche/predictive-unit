@@ -70,14 +70,6 @@ namespace NPredUnit {
 		{
 		}
 
-		bool TryParse(int argc, const char** argv) {
-			TVector<TString> args;
-			for (ui32 i=1; i<argc; ++i) {
-				args.push_back(argv[i]);
-			}
-			return TryParse(args);
-		}
-
 		bool TryParse(const TVector<TString>& args) {
 			try {
 				Parse(args);	

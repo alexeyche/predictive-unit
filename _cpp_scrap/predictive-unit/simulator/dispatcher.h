@@ -168,19 +168,16 @@ namespace NPredUnit {
 
 				// L_INFO << "Dispatcher: Check queue";
 				for (const auto& sq: dispatcher.SimQueues) {
-					while (sq.second->size_approx()>0) {
-						TMatrixD data;
-						if (sq.second->try_dequeue(data)) {
-							L_INFO << "Dispatcher: Dequeuing from #sim id " << sq.first << " buffer, approx size: " << sq.second->size_approx();
-							auto range = dispatcher.ReverseMap.equal_range(sq.first);
-							for (auto it = range.first; it != range.second; ++it) {
-								L_INFO << "Dispatcher: Sending data for " << it->second.first.toString() << ", #sim id " << it->second.second;
-								SendData(data, it->second.first, it->second.second);
-							}
-							
-						}	
+					TMatrixD data;
+					if (sq.second->try_dequeue(data)) {
+						L_INFO << "Dispatcher: Dequeuing from #sim id " << sq.first << " buffer, approx size: " << sq.second->size_approx();
+						auto range = dispatcher.ReverseMap.equal_range(sq.first);
+						for (auto it = range.first; it != range.second; ++it) {
+							L_INFO << "Dispatcher: Sending data for " << it->second.first.toString() << ", #sim id " << it->second.second;
+							SendData(data, it->second.first, it->second.second);
+						}
+						
 					}
-					
 				}
 			}
 		}

@@ -14,7 +14,8 @@ namespace NPredUnit {
 	class TSimulator {
 	public:
 
-		static constexpr ui32 BufferSize = 20;
+		static constexpr ui32 BufferSize = 2000;
+		static constexpr ui32 QuantSize = 20;
 
 		struct TStats: TProtoStructure<NPredUnitPb::TStats> {
 			TStats(TLayerConfig config) {
@@ -58,6 +59,7 @@ namespace NPredUnit {
 			TMutex SimMutex;
 			TMatrixD InputBuff;
 			TMatrixD OutputBuff;
+			ui64 Iterator = 0;
 
 			TOptional<TStats> Stats;
 			TOptional<TStats> CollectedStats;
@@ -167,15 +169,16 @@ namespace NPredUnit {
 		}
 
 		void IngestData(const TInputData& inp, TSimulatorCtx* simCtx) {
+			L_INFO << "Sim id #" << simCtx->Config.Id << ", ingesting data at " << simCtx->Iterator;
 			for (ui32 t=0; t<ToUi32(inp.Data.cols()); t+=simCtx->Config.LayerConfig.InputSize) {
 				simCtx->InputBuff.block(
 					0, 
-					t,
+					(simCtx->Iterator + t),
 					simCtx->Config.LayerConfig.BatchSize, 
 					simCtx->Config.LayerConfig.InputSize*simCtx->Config.LayerConfig.FilterSize
 				) = inp.Data.block(
 					0, 
-					t,
+					(simCtx->Iterator + t),
 					simCtx->Config.LayerConfig.BatchSize, 
 					simCtx->Config.LayerConfig.InputSize*simCtx->Config.LayerConfig.FilterSize
 				);
@@ -186,6 +189,7 @@ namespace NPredUnit {
 			auto& simCtx = GetContext(inp.SimId);
 			
 			ENSURE(simCtx.Config.LayerConfig.BatchSize == ToUi32(inp.Data.rows()), "Wrong batch size"); 
+			
 			while (simCtx.InputBuffLock.test_and_set(std::memory_order_acquire)) {}
 			IngestData(inp, &simCtx);
 			simCtx.InputBuffLock.clear(std::memory_order_release);
@@ -214,7 +218,7 @@ namespace NPredUnit {
 			
 			TLayer layer(simConfig.LayerConfig);
 
-			ui64 iter = 0;
+			ui64 iter = sim.Iterator;
 			ui64 nCycle = 0;
 			
 			i32 nSimTime = 0;
@@ -237,26 +241,25 @@ namespace NPredUnit {
 					RunLock(sim.StatsBuffLock, [&]() {
 						if (collectStats) {
 							collectStats = false;
-							sim.CollectedStats = TOptional<TStats>(sim.Config.LayerConfig);
+							sim.CollectedStats = TOptional<TStats>();
 							sim.CollectedStats.swap(sim.Stats);
 							sim.CollectedStats->F = layer.F;
 							sim.CollectedStats->Fc = layer.Fc;
 							L_INFO << "Sim id #" << sim.Config.Id << ", cycle #" << nCycle << ": Stat collect is done";
 						} else
 						if (sim.Stats) {
-							L_INFO << "Sim id #" << sim.Config.Id << ", cycle #" << nCycle << ": Starting to collect stats";
 							collectStats = true;
+							L_INFO << "Sim id #" << sim.Config.Id << ", cycle #" << nCycle << ": Starting to collect stats";
 						}
 					});
 
-					L_INFO << "Sim id #" << sim.Config.Id << " is adding data to output buffer, approx size: " << sim.OutputQueue.size_approx();
-					while (!sim.OutputQueue.enqueue(sim.OutputBuff)) {
-						L_INFO << "Sim id #" << sim.Config.Id << " waiting output queue, approx size: " << sim.OutputQueue.size_approx();
-					}
-					
 					iter = 0;
-					inputIter = iter * sim.Config.LayerConfig.InputSize;
-					layerIter = iter * sim.Config.LayerConfig.LayerSize;
+					RunLock(sim.InputBuffLock, [&]() {
+						sim.Iterator = 0;
+					});
+
+					inputIter = 0;
+					layerIter = 0;
 					++nCycle;
 				}
 				
@@ -267,6 +270,7 @@ namespace NPredUnit {
 					sim.Config.LayerConfig.BatchSize, 
 					sim.Config.LayerConfig.InputSize*sim.Config.LayerConfig.FilterSize	
 				);
+				++sim.Iterator;
 				sim.InputBuffLock.clear(std::memory_order_release);
 
 				layer.Tick(input);
@@ -294,6 +298,22 @@ namespace NPredUnit {
 					sim.Config.LayerConfig.BatchSize, 
 					sim.Config.LayerConfig.LayerSize
 				) = layer.Activation;
+
+				if ((iter > 0) && (iter % QuantSize == 0)) {
+					L_INFO << "Sim id #" << sim.Config.Id <<  ", Quantize output: iter: " << iter << ", at " << (iter - QuantSize) * sim.Config.LayerConfig.LayerSize;
+					TMatrixD outQuant = sim.OutputBuff.block(
+						0, 
+						(iter - QuantSize) * sim.Config.LayerConfig.LayerSize,
+						sim.Config.LayerConfig.BatchSize, 
+						QuantSize * sim.Config.LayerConfig.LayerSize
+					);
+
+					L_INFO << "Sim id #" << sim.Config.Id << " is adding data to output buffer, approx size: "; // << sim.OutputQueue.size_approx();
+					while (!sim.OutputQueue.enqueue(outQuant)) {
+						L_INFO << "Sim id #" << sim.Config.Id << " waiting output queue, approx size: "; // << sim.OutputQueue.size_approx();
+					}
+				}
+				
 
 				++iter;
 				++nSimTime;

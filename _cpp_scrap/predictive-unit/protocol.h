@@ -58,7 +58,7 @@ namespace NPredUnit {
 		}
 
 		ui32 Id = 0;
-		i32 SimulationTime = -1;
+		i32 SimulationTime = 10000;
 		bool CollectStats = true;
 		TLayerConfig LayerConfig;
 	};

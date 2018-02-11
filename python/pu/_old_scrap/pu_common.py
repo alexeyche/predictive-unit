@@ -62,18 +62,18 @@ def read_message(sck):
     if len(data) == 0:
         raise Exception("Failed to read data from socket")
       
- 
     mtype, = struct.unpack_from("<L", data)
     msize, = struct.unpack_from("<L", data, offset=4)
  
     mname = MESSAGE_NUM_TO_NAME.get(mtype)
+
     if mname == "SERVER_RESPONSE":
-       mdata = sck.recv(msize)
- 
-       resp = messages.TServerResponse()
-       resp.ParseFromString(mdata)
+        mdata = sck.recv(msize)
+
+        resp = messages.TServerResponse()
+        resp.ParseFromString(mdata)
     else:
-       raise NotImplementedError("Failed to handle respoonse: {}".format(mname))
+        raise NotImplementedError("Failed to handle response: {}".format(mname))
  
     sck.close()
     return resp

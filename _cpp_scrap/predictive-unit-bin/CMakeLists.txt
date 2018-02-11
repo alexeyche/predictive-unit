@@ -3,7 +3,7 @@ add_executable(
 	predictive-unit-bin 
 
  	predictive-unit.cpp
- 	io.cpp
+ 	client.cpp
 )
 
 set_target_properties(

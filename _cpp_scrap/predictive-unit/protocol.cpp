@@ -56,6 +56,8 @@ namespace NPredUnit {
 		THeader header;
 		header.MessageSize = src.ByteSize();
 		header.MessageType = messageType;
+		
+		L_INFO << header.MessageSize << " " << header.MessageType << " " << sizeof(THeader);
 
 		ui32 bytesToSend = sizeof(THeader) + header.MessageSize;
 		char* buf = new char[bytesToSend];

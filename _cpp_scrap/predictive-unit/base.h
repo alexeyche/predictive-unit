@@ -13,7 +13,7 @@
 #include <set>
 #include <map>
 #include <thread>
-#include <cstdint>
+
 #include <predictive-unit/contrib/rwq/readerwriterqueue.h>
 
 #include <Eigen/Dense>
@@ -47,8 +47,7 @@ namespace NPredUnit {
     using ui32 = size_t;
 	using i32 = int;
 	using ui64 = unsigned long;
-	using ui8 = uint8_t;
-		
+	
     //template< class... Types>
     //using Tie = std::tie<Types& ...>;
 
@@ -86,7 +85,6 @@ namespace NPredUnit {
 	}
 
 	using TOutputStream = std::ostream;
-	using TInputStream = std::istream;
 
 	template <typename T>
 	using TRefWrap = std::reference_wrapper<T>;

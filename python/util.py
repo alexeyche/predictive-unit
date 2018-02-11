@@ -38,24 +38,32 @@ def shm(matrix, **kwargs):
     plt.colorbar()
 
 
+def gauss_filter(filter_size, sigma):
+    return np.exp(-np.square(0.5-np.linspace(0.0, 1.0, filter_size))/sigma)
 
+def exp_filter(filter_size, sigma):
+    f = np.exp(-(np.linspace(0.0, 1.0, filter_size))/(10.0*sigma))
+    fr = np.zeros(f.shape)
+    fr[(filter_size/2):] = f[:(filter_size/2)]
+    return fr
 
-def smooth(signal, sigma=0.01, filter_size=50):
-    lf_filter = np.exp(-np.square(0.5-np.linspace(0.0, 1.0, filter_size))/sigma)
+def smooth(signal, sigma=0.01, filter_size=50, filter=gauss_filter):
+    lf_filter = filter(filter_size, sigma)
+
     return np.convolve(lf_filter, signal, mode="same")
 
-def smooth_matrix(m, sigma=0.01, filter_size=50):
+def smooth_matrix(m, sigma=0.01, filter_size=50, kernel=gauss_filter):
     res = np.zeros(m.shape)
     for dim_idx in xrange(m.shape[1]):
-        res[:, dim_idx] = smooth(m[:, dim_idx], sigma, filter_size)
+        res[:, dim_idx] = smooth(m[:, dim_idx], sigma, filter_size, kernel)
     return res
 
 
-def smooth_batch_matrix(m, sigma=0.01, filter_size=50):
+def smooth_batch_matrix(m, sigma=0.01, filter_size=50, kernel=gauss_filter):
     res = np.zeros(m.shape)
     for dim_idx0 in xrange(m.shape[1]):
         for dim_idx1 in xrange(m.shape[2]):
-            res[:, dim_idx0, dim_idx1] = smooth(m[:, dim_idx0, dim_idx1], sigma, filter_size)
+            res[:, dim_idx0, dim_idx1] = smooth(m[:, dim_idx0, dim_idx1], sigma, filter_size, kernel)
     return res
 
 
