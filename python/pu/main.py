@@ -1,52 +1,55 @@
 
 import struct
 import socket
+import numpy as np
 
-from pu.config import *
-from io import BytesIO
+from pu.protocol import *
+from collections import OrderedDict 
+from StringIO import StringIO
 
-lc0 = LayerConfig(
-	layerType = 0 ,
-	networkSize = 100,
-	inputSize = 4,
-	batchSize = 4,
-	filterSize = 1,
-	bufferSize = 100,
-	tau = 5.0,
-	tauMean = 100.0 ,
-	adaptGain = 1.0,
-	learningRate = 0.1,
+
+ss = StartSim(
+	NetworkConfig = NetworkConfig(
+		LayerConfigs = (
+			LayerConfig(
+				LayerType = 0,
+				LayerSize = 100,
+				InputSize = 4,
+				BatchSize = 4
+			),
+			LayerConfig(
+				LayerType = 1,
+				LayerSize = 2,
+				InputSize = 100,
+				BatchSize = 4
+			)
+		)
+	),
+	Data = np.random.random((10, 10))
 )
 
-lc1 = LayerConfig(
-	layerType = 0,
-	networkSize = 2,
-	inputSize = 100,
-	batchSize = 4,
-	filterSize = 1,
-	bufferSize = 100,
-	tau = 5.0,
-	tauMean = 100.0 ,
-	adaptGain = 1.0,
-	learningRate = 0.99,
-)
 
-nc = NetworkConfig(layerConfigs = (lc0, lc1))
+
+out = Writer()
+ss.serial(out)
+
+sc = ss.copy()
+
+dd = out.get()
 
 
 
-port = 8080
-site = "localhost"
+r = Reader(dd)
+ss.serial(r)
 
-out = BytesIO()
-nc.serialize(out)
+# port = 8080
+# site = "localhost"
+
+# sck = socket.socket()
+# sck.connect((site, port))
 
 
-sck = socket.socket()
-sck.connect((site, port))
-
-
-bytes_sent = sck.send(out.getvalue())
-if bytes_sent == 0:
-    raise Exception("Failed to sent data to {}:{}".format(site, port))
-print bytes_sent
+# bytes_sent = sck.send(out.getvalue())
+# if bytes_sent == 0:
+#     raise Exception("Failed to sent data to {}:{}".format(site, port))
+# print bytes_sent

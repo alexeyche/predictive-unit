@@ -25,7 +25,7 @@ namespace NPredUnit {
 				: NetworkConfig(layerConfig) 
 			{
 				InputBuff = TMatrixD::Zero(NetworkConfig.BatchSize, NetworkConfig.InputSize*NetworkConfig.BufferSize);
-				OutputBuff = TMatrixD::Zero(NetworkConfig.BatchSize, NetworkConfig.NetworkSize*NetworkConfig.BufferSize);
+				OutputBuff = TMatrixD::Zero(NetworkConfig.BatchSize, NetworkConfig.LayerSize*NetworkConfig.BufferSize);
 			}
 
 			TMutex SimMutex;
@@ -129,7 +129,7 @@ namespace NPredUnit {
 			const bool endLess = simConfig.SimulationTime < 0;
 			while (endLess || (nSimTime < simConfig.SimulationTime)) {
 				ui32 inputIter = iter * sim.Config.NetworkConfig.InputSize;
-				ui32 layerIter = iter * sim.Config.NetworkConfig.NetworkSize;
+				ui32 layerIter = iter * sim.Config.NetworkConfig.LayerSize;
 
 				auto input = sim.InputBuff.block(
 					0, 
@@ -144,7 +144,7 @@ namespace NPredUnit {
 					0, 
 					layerIter,
 					sim.Config.NetworkConfig.BatchSize, 
-					sim.Config.NetworkConfig.NetworkSize
+					sim.Config.NetworkConfig.LayerSize
 				) = layer.Activation;
 
 

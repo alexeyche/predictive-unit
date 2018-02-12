@@ -5,6 +5,7 @@
 #include <predictive-unit/base.h>
 #include <predictive-unit/log.h>
 
+#include <Poco/Net/StreamSocket.h>
 
 namespace NPredUnit {
 
@@ -25,6 +26,7 @@ namespace NPredUnit {
 		void VarUInt(TVarUInt& x);
 
 		void Double(double& x);
+		void Matrix(TMatrixD& x);
 		
 		template <typename T>
 		void Array(TVector<T>& v);
@@ -88,6 +90,16 @@ namespace NPredUnit {
 	    ui64 tmp;
 	    readVarUInt(tmp, istr);
 	    x = tmp;
+	}
+
+	template <typename T>
+	void ReadFromSocket(Poco::Net::StreamSocket& sck, std::function<void(TInputStream&)> callback) {
+		char rawBuffer[sizeof(T)];
+		sck.receiveBytes(&rawBuffer[0], sizeof(T));
+		
+		TMemBuf buffer(&rawBuffer[0], sizeof(T));
+		TInputStream io(&buffer);
+		callback(io);
 	}
 
 }

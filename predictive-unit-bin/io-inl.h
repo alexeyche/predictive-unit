@@ -27,7 +27,7 @@ namespace NPredUnit {
 	template <>
 	template <typename T>
 	void TIOStream<TOutputStream>::Array(TVector<T>& v) {
-		ui32 size;
+		ui32 size = v.size();
 		VarUInt(size);
 		for (auto& elem: v) {
 			elem.Serial(std::forward<TIOStream<TOutputStream>>(*this));

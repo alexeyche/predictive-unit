@@ -1,6 +1,7 @@
 #pragma once
 
 #include "network.h"
+#include "protocol.h"
 
 #include <sys/socket.h>
 
@@ -39,17 +40,29 @@ namespace NPredUnit {
 			try {
 				L_INFO << "Got connection from " << sck.peerAddress().toString();		
 				
-				char rawBuffer[100];
-				sck.receiveBytes(&rawBuffer[0], 100);
+				EMessageType messageType;
+				ReadFromSocket<EMessageType>(sck, [&](TInputStream& istr) {
+					readBinary(messageType, istr);	
+				});
 				
-				TMemBuf buffer(&rawBuffer[0], 100);
-				TInputStream io(&buffer);
 				
-				TNetworkConfig config;
-				
-				config.Serial(IOStream(io));
+				switch (messageType) {
+					case EMT_START_SIM:
+						L_INFO << "Got start sim";
+						TStartSim startSim;
+						ReadFromSocket<TStartSim>(sck, [&](TInputStream& istr) {
+							startSim.Serial(IOStream(istr));
+						});
 
-				config.Serial(NamedLogStream("NetworkConfig"));
+						startSim.Serial(NamedLogStream("StartSim:"));
+
+						break;
+				}
+				// TNetworkConfig config;
+				
+				// config.Serial(IOStream(io));
+
+				// config.Serial(NamedLogStream("NetworkConfig"));
 
 		
 			} catch (Poco::Exception& err) {

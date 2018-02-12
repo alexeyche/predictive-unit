@@ -38,6 +38,10 @@ namespace NPredUnit {
 	        	return ss.str();
 	        }
 
+	        TString Str() const {
+	        	return ss.str();
+	        }
+
 		private:
 	        stringstream ss;
 	    };
