@@ -30,26 +30,17 @@ ss = StartSim(
 
 
 
-out = Writer()
-ss.serial(out)
-
-sc = ss.copy()
-
-dd = out.get()
+bytes_str = serial_message(ss)
 
 
+port = 8080
+site = "localhost"
 
-r = Reader(dd)
-ss.serial(r)
-
-# port = 8080
-# site = "localhost"
-
-# sck = socket.socket()
-# sck.connect((site, port))
+sck = socket.socket()
+sck.connect((site, port))
 
 
-# bytes_sent = sck.send(out.getvalue())
-# if bytes_sent == 0:
-#     raise Exception("Failed to sent data to {}:{}".format(site, port))
-# print bytes_sent
+bytes_sent = sck.send(bytes_str)
+if bytes_sent == 0:
+    raise Exception("Failed to sent data to {}:{}".format(site, port))
+print bytes_sent

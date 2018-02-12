@@ -48,14 +48,16 @@ namespace NPredUnit {
 				
 				switch (messageType) {
 					case EMT_START_SIM:
-						L_INFO << "Got start sim";
-						TStartSim startSim;
-						ReadFromSocket<TStartSim>(sck, [&](TInputStream& istr) {
-							startSim.Serial(IOStream(istr));
-						});
-
-						startSim.Serial(NamedLogStream("StartSim:"));
-
+						{
+							L_INFO << "Got start sim";
+							TStartSim startSim;
+							ReadFromSocket<TStartSim>(sck, [&](TInputStream& istr) {
+								L_INFO << "CB";
+								startSim.Serial(IOStream(istr));
+							});
+							L_INFO << "Done";
+							startSim.Serial(NamedLogStream("StartSim:"));							
+						}
 						break;
 				}
 				// TNetworkConfig config;

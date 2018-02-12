@@ -40,6 +40,7 @@ class Writer(object):
 	def get(self):
 		return self.buff.getvalue()
 
+
 class ProtocolObject(object):
 	def __init__(self, **params):
 		self._params = self.SCHEMA.copy() 
@@ -57,6 +58,13 @@ class ProtocolObject(object):
 		v.__init__(**self._params)
 		return v
 
+	def __getattr__(self, name):
+		if name[:1] == "_":
+		 	return getattr(self, name)
+
+		if name in self._params:
+			return self._params[name]
+		raise Exception("Unknown attribute: {}".format(name))
 
 	def serial(self, buff):
 		def write_instance(v):
@@ -86,10 +94,14 @@ class ProtocolObject(object):
 			elif type(v) is int:
 				return readVarUInt(buff)
 			elif isinstance(v, ProtocolObject):
-				return v.serial(buff)
+				vc = v.copy()
+				vc.serial(buff)
+				return vc
 			elif type(v) is tuple or type(v) is list:
 				size = readVarUInt(buff)
+
 				vc = v[0].copy()
+
 				return tuple([
 					read_instance(vvc)
 					for vvc in [vc for _ in xrange(size)]
@@ -119,6 +131,7 @@ class ProtocolObject(object):
 		elif isinstance(buff, Writer):
 			for k, v in self._params.iteritems():
 				write_instance(v)
+
 		else:
 			raise Exception("Unknown type of buffer: {}".format(buff))
 
@@ -128,7 +141,8 @@ class ProtocolObject(object):
 			"\n".join(["\t{} - {}".format(k, v) for k, v in self._params.iteritems()]),
 		)
 
-
+	def __repr__(self):
+		return "<{} instance>".format(type(self).__name__)
 
 class LayerConfig(ProtocolObject):
 	SCHEMA = OrderedDict([
@@ -151,10 +165,6 @@ class NetworkConfig(ProtocolObject):
 		("LayerConfigs", [LayerConfig()]),
 	])
 
-class MessageType(ProtocolObject):
-	SCHEMA = OrderedDict([
-		("MessageType", 0)
-	])
 
 class StartSim(ProtocolObject):
 	SCHEMA = OrderedDict([
@@ -162,4 +172,32 @@ class StartSim(ProtocolObject):
 		("Data", np.matrix(((0,0)), np.float64))
 	])
 
+
+MESSAGE_TYPE_TO_CLASS = {
+	0: StartSim
+}
+
+
+
+def serial_message(m):
+	mt = [mt for mt, mc in MESSAGE_TYPE_TO_CLASS.iteritems() if isinstance(m, mc)]
+	assert len(mt) == 1, "Failed to find message type"
+	mt = mt[0]
+
+	out = Writer()
+	writeVarUInt(mt, out)
+	m.serial(out)
+	
+	return out.get()
+
+
+def deserial_message(buff):
+	mt = readVarUInt(buff)
+	mc = MESSAGE_TYPE_TO_CLASS.get(mt)
+	assert not mc is None, "Failed to find class for message type: {}".format(mt)
+
+	m = mc()
+	m.serial(buff)
+
+	return m
 
